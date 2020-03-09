@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+import time
+import sys
+import json
+import paho.mqtt.client as mqtt
+import os 
+import subprocess
+import OpenSSL.crypto as crypto
+import ssl
+import yaml
+import beanstalkc
+
+config_file = os.getenv('HOME')+'/stylo.yml'
+
+if os.path.exists(config_file):
+  with open(config_file, 'r') as ymlfile:
+      cfg = yaml.load(ymlfile)
+else:
+  print "%s config file not found !" % (config_file)
+  sys.exit(1)
+
+mqtt_host = cfg['mqtt']['host']
+mqtt_port = cfg['mqtt']['port']
+mqtt_tls_cert = cfg['mqtt']['tls_cert']
+mqtt_tls_key = cfg['mqtt']['tls_key']
+mqtt_tls_insecure = cfg['mqtt']['tls_insecure']
+mqtt_cacert = cfg['mqtt']['ca_cert']
+mqtt_topic = cfg['mqtt']['topic']
+
+def on_connect(client, userdata, flags, rc):
+  print("Connected to broker ", mqtt_host ,rc)
+  client.subscribe(mqtt_topic)
+
+def on_message(client, userdata, message):
+  msg_payload = json.loads(str(message.payload.decode("utf-8")))
+  msg_topic = str(message.topic.decode("utf-8"))
+  print "[%s] : Received incoming request for tag [%s]" % (time.asctime(), msg_payload['tag'])
+  bs = beanstalkc.Connection()
+  bs.use('signing')
+  bs.put(json.dumps(msg_payload), priority=8192)
+
+def on_subscribe(client, userdata, topic, qos):
+  print "subscribed to "+topic
+
+def main():
+  mqtt_client_id = '%s-%s' % (os.uname()[1],str(time.time()).split('.')[0])
+  client = mqtt.Client(client_id=mqtt_client_id, clean_session=False)
+  client.tls_set(ca_certs=mqtt_cacert,certfile=mqtt_tls_cert,keyfile=mqtt_tls_key,tls_version=2)
+  client.tls_insecure_set(mqtt_tls_insecure)
+  client.connect(mqtt_host,mqtt_port)
+  client.subscribe(mqtt_topic)
+  client.on_connect = on_connect
+  client.on_message = on_message
+
+  client.loop_forever()
+
+  while True:
+    time.sleep(1)
+
+if __name__ == '__main__':
+    main()

@@ -1,1 +1,123 @@
 # Defaults tasks for role stylo
+- name: Creating local signing user
+  user:
+    name: "{{ stylo_local_user }}"
+    comment: "CentOS Stylo user"
+
+- name: Ensuring we have correct cert
+  copy:
+    src: "{{ pkistore }}/koji/{{ stylo_koji_user_cert }}"
+    dest: "/home/{{ stylo_local_user }}/.centos.cert"
+  tags:
+    - tls
+
+- name: CA cert for koji user
+  copy:
+    src: "{{ pkistore }}/koji/{{ stylo_koji_ca_cert }}"
+    dest: "/home/{{ stylo_local_user }}/.centos-server-ca.cert"
+  tags:
+    - tls
+
+- name: Add the kojihub repo if needed
+  template:
+    src: koji.repo.j2
+    dest: /etc/yum.repos.d/koji.repo
+  when: stylo_kojihub_repo
+  tags:
+    - repo
+
+- name: koji nfs storage
+  include_tasks: storage.yml
+
+- name: Adding mandatory packages for stylo
+  yum:
+    name: "{{ stylo_pkgs }}"
+    state: latest
+
+- name: Ensuring we have local beanstalkd started
+  service:
+    name: beanstalkd
+    state: started
+    enabled: True
+
+- name: Configuring rpmmacros for stylo
+  template:
+    src: rpmmacros.j2
+    dest: "/home/{{ stylo_local_user }}/.rpmmacros"
+    owner: "{{ stylo_local_user }}"
+  tags:
+    - config
+
+- name: Ensuring we have gnupg dir
+  file:
+    path: "/home/{{ stylo_local_user }}/.gnupg"
+    state: directory
+    mode: 0700
+    owner: "{{ stylo_local_user }}"
+
+- name: Configuring gpg-agent
+  template:
+    src: gpg-agent.conf.j2
+    dest: "/home/{{ stylo_local_user }}/.gnupg/gpg-agent.conf"
+    owner: "{{ stylo_local_user }}"
+  tags:
+    - gpg
+    - config
+
+- name: Ensuring we have correct directories
+  file:
+    path: "/home/{{ stylo_local_user }}/{{ item }}"
+    state: directory
+    owner: "{{ stylo_local_user }}"
+    group: "{{ stylo_local_user }}"
+  with_items:
+    - stylo-code
+    - logs
+    - staging
+
+- name: Configuring stylo parts
+  template:
+    src: "{{ item }}.j2"
+    dest: "/home/{{ stylo_local_user }}/{{ item }}"
+    owner: "{{ stylo_local_user }}"
+    group: "{{ stylo_local_user }}"
+    mode: 0640
+  with_items:
+    - stylo.yml
+    - stylo.cfg
+  tags:
+    - config
+
+- name: Stylo scripts
+  synchronize:
+    src: stylo-code/
+    dest: "/home/{{ stylo_local_user }}/stylo-code/"
+
+- name: Systemd unit files
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+  with_items:
+    - stylo-mqtt-subscriber.service  
+    - stylo-signing-worker.service
+  register: stylo_systemd
+
+- name: Reloading systemd if needed
+  shell: /usr/bin/systemctl daemon-reload
+  when: stylo_systemd is changed
+
+- name: Ensuring services are enabled and started
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: True
+  with_items:
+    - stylo-mqtt-subscriber
+    - stylo-signing-worker
+
+- name: Ensuring we keep gpg busy and test we can sign random files
+  cron:
+    name: "GPG signing test"
+    job: "/home/{{ stylo_local_user }}/stylo-code/cron-sign-test"
+    minute: "*/2"
+    user: "{{ stylo_local_user }}"

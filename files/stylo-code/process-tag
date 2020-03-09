@@ -1,0 +1,214 @@
+#!/bin/bash
+
+# Purposes of this script:
+# - query CBS/koji tags
+# - find unsigned rpm[s] and sign them with correct key (if tag is testing or release)
+# - instruct Koji to generate a repository (including metadata)
+# - sign also generated repomd.xml (repodata) with same gpg key (SIG key)
+# - push to correct node/path for release
+
+PATH=$PATH:$HOME/stylo-code
+# Some variables to source from config file
+source ~/stylo.cfg
+source ~/stylo-code/functions
+logfile="${log_dir}/stylo.log"
+regen_repo="0"
+
+function usage() {
+cat << EOF
+You need to call the script like this : $0 -arguments
+ -t : koji tag to parse [required, example: storage7-gluster-7-testing]
+ -r : Force a call to koji dist-repo to regen repository for tag [optional, default: depends if unsigned pkgs are found]
+ -h : display this help
+EOF
+
+}
+
+function varcheck() {
+if [ -z "$1" ] ; then
+        usage
+        exit 1
+fi
+}
+
+while getopts "ht:r" option
+do
+  case ${option} in
+    h)
+      usage
+      exit 1
+      ;;
+    t)
+     koji_tag=${OPTARG}
+      ;;
+    r)
+     regen_repo="1"
+     ;;
+    ?)
+      usage
+      exit
+      ;;
+  esac
+done
+
+varcheck ${koji_tag}
+
+# Some parsing
+sig_level=$(echo $koji_tag|cut -f 4 -d '-')
+sig_project=$(echo $koji_tag|cut -f 2 -d '-')
+sig_project_rel=$(echo $koji_tag|cut -f 3 -d '-')
+sig_rel=$(echo $koji_tag|cut -f 1 -d '-')
+sig=${sig_rel::-1} 
+dist=${sig_rel:(-1)}
+sig_gpg="gpg_$sig"
+sig_key=${!sig_gpg} 
+
+f_log "Processing koji_tag [${koji_tag}] for SIG [${sig}] and release [${dist}] using GPG key [${sig_key}]"
+f_log "Verifying first if underlying GPG subsys works"
+if [ -e /home/$USER/logs/gpg.unready ];then
+  f_log "ERROR : GPG doesn't seem to be ready (locked keys)"
+  f_log "ERROR : Adding [${koji_tag}] to local file to be requeued"
+  echo "${koji_tag}" >> /home/$USER/logs/signing-queue
+  /bin/false ; f_check
+fi
+
+if [ "$sig_level" == "candidate" ] ;then
+  f_log "Not processing at all candidate tag for [${koji_tag}]"
+  exit 0
+elif [ "$sig_level" == "testing" ]; then
+  need_sign="0"
+  push_debug="0"
+  push_vault="0"
+  dist_repo_options="--non-latest --allow-missing-signatures"
+  target="buildlogs_basedir"
+  target_dir=${!target}
+elif [ "$sig_level" == "release" ]; then
+  need_sign="1"
+  push_debug="1"
+  push_vault="1"
+  dist_repo_options="--non-latest --with-src --split-debuginfo"
+  target="mirror_basedir"
+  target_dir=${!target}
+else
+  f_log "Incorrect level [${sig_level}] (not in candidate/testing/release). Exiting"
+  exit 0
+fi
+
+
+# Testing first we can reach koji
+f_log "Testing we can reach koji"
+cbs moshimoshi >/dev/null
+f_check
+
+# Testing koji tag exists
+f_log "Verifying koji tag [${koji_tag}]"
+cbs list-tags|egrep -q ${koji_tag}
+f_check
+
+# Find how many pkgs are unsigned and act if needed
+if [ "${need_sign}" -eq "1" ] ; then
+  f_log "Verifying if we have unsigned pkgs in tag [${koji_tag}] with key [${sig_key}]"
+  unsigned_pkgs=$(find_unsigned_rpms --tag=${koji_tag} --just-numbers sig-${sig})
+  if [ "$unsigned_pkgs" -eq "0" ];then
+    f_log "No unsigned package found"
+  else
+    export regen_repo="1"
+    f_log "Unsigned packages found. Downloading ..."
+    signing_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
+    pushd $signing_stg_dir >/dev/null
+    for pkg in $(find_unsigned_rpms --tag=${koji_tag} --just-list sig-${sig}) ; do
+	    f_log "Downloading pkg [${pkg}]"
+      cbs download-build --debuginfo --rpm ${pkg} --quiet
+      f_check
+      f_log "Signing pkg [${pkg}] with gpg key [${sig_key}]"
+      rpmsign --define "_gpg_name ${sig_key}" --addsign ${pkg} >/dev/null
+      f_check
+      f_log "Importing signed [${pkg}] back into koji ..."
+      cbs import-sig ${pkg} --write >/dev/null
+      f_check
+    done
+    popd >/dev/null
+    rm -Rf ${signing_stg_dir}
+  fi
+else
+  f_log "Not checking for unsigned pkgs for tag [${koji_tag}] as level is [${sig_level}]"
+fi
+
+# Verifying if we are asked to still regen repo
+if [ "$regen_repo" -eq "1" ] ;then
+  f_log "Signed pkgs or -r flag called to force dist-repo. Calling koji dist-repo for tag [${koji_tag}] and waiting for results ..."
+  dist_repo_task=$(cbs dist-repo ${dist_repo_options} ${koji_tag} ${sig_key} 2>&1)
+  if [ "$?" -ne "0" ] ; then
+    f_log "ERROR: koji dist-repo failed :"
+    f_log "$dist_repo_task"
+    /bin/false ; f_check
+  else
+    f_log "$dist_repo_task"
+  fi
+fi
+
+# Detect enabled architectures to know what to push and where
+tag_arches=$(cbs taginfo ${koji_tag}|grep Arches|cut -f 2 -d ':')
+
+# Trying to push to master node
+if [ "$regen_repo" -eq "1" ] ;then
+  f_log "Verifying if we have correct target dir before trying to push ..."
+  for arch in ${tag_arches}; do
+    if [[ "$arch" != "x86_64" ]] && [[ "$dist" == "7" ]] && [[ "$sig_level" == "release" ]] ; then
+      contentdir="altarch"
+    else
+      contentdir="centos"
+    fi
+    f_log "Testing dir ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
+    ssh ${push_user}@${master} "test -d ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel} || mkdir -p ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
+    f_check
+    f_log "Pushing to ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
+    rsync -avH ${repo_dist_dir}/${koji_tag}/latest/${arch}/ ${push_user}@${master}:/${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debuginfo*.rpm' >> ${logfile}
+    f_check
+    f_log "Signing repomd.xml with gpg key [${sig_key}]"
+    repomd_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
+    pushd ${repomd_stg_dir} > /dev/null
+    cp ${repo_dist_dir}/${koji_tag}/latest/${arch}/repodata/repomd.xml ./
+    gpg --batch --detach-sig --armor -b --use-agent --local-user ${sig_key} repomd.xml
+    f_check
+    f_log "Uploading repomd.xml.asc to ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}/repodata"
+    scp -q repomd.xml.asc ${push_user}@${master}:/${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}/repodata/repomd.xml.asc
+    f_check
+    popd >/dev/null
+    rm -Rf ${repomd_stg_dir}
+    # Now that we pushed prod tree, we need to process debug
+    if [ "$push_debug" -eq "1" ] ; then
+      f_log "Testing debug dir ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
+      ssh ${push_user}@${master} "test -d  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch} || mkdir -p  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
+      f_check
+      f_log "Pushing debuginfo packages into ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
+      find ${repo_dist_dir}/${koji_tag}/latest/${arch}/ -iname '*debug*.rpm' -exec scp -q {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
+      f_check
+      f_log "Remotely triggering repodata regen on [${master}] in ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/"
+      ssh ${push_user}@${master} "cd ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ ; createrepo_c -q -d --workers 8 ./"
+      f_check
+    else
+      f_log "No debug for [${sig_level}] so nothing to push out to CDN"
+    fi
+    # Same but for src.rpm
+    if [ "$push_vault" -eq "1" ] ; then
+      f_log "Testing Vault Directory ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      ssh ${push_user}@${master} "test -d ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/ || mkdir -p  ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      f_check
+      f_log "Pushing src.rpm packages into ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      find ${repo_dist_dir}/${koji_tag}/latest/src/ -iname '*src.rpm' -exec scp -q {} ${push_user}@${master}:${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/ \;
+      f_check
+      f_log "Remotely triggering repodata regen on [${master}] in ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      ssh ${push_user}@${master} "cd ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}// ; createrepo_c -q -d --workers 8 ./"
+      f_check
+    else
+      f_log "No src.rpm packages to push for [${sig_level}]"
+    fi
+  done
+fi
+
+# Ending
+f_log "Finished processing [${koji_tag}]"
+f_log "================================================================"
+
+

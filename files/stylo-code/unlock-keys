@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# This file is to be called manually with correct TTY to unlock gpg keys, and store them in gpg-agent
+# As we call it manually (securely), we'll start by killing gpg-agent
+
+pgrep -u $USER gpg-agent >/dev/null && pkill gpg-agent
+
+for key in $(gpg --list-secret-keys|egrep -v secring|grep ^sec|awk '{print $2}'|cut -f 2 -d '/') ; do  
+  candidate_file=$(mktemp)
+  timeout 30 gpg --batch --sign -b --use-agent --local-user ${key} ${candidate_file} >/dev/null 2>&1 
+  if [ "$?" -ne "0" ] ; then     
+    /bin/rm ${candidate_file}
+    echo "$(date) - Not possible to sign with key ${key}"
+  else     
+    /bin/rm ${candidate_file} 
+    echo "$(date) - Signing test with key ${key}: OK"
+    test -e ~/logs/gpg.unready && rm ~/logs/gpg.unready 
+  fi
+done
+

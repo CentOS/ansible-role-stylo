@@ -1,0 +1,15 @@
+koji:
+  url: {{ stylo_kojihub_url }}
+keys:
+{% for sig in stylo_gpg_sigs %}
+  sig-{{ sig.name }}: {{ sig.key_id }}
+{% endfor %}
+mqtt:
+  host: {{ stylo_mqtt_host }}
+  port: 8883
+  tls_key: /home/{{ stylo_local_user }}/.centos.cert
+  tls_cert: /home/{{ stylo_local_user }}/.centos.cert
+  tls_insecure: 'False'
+  ca_cert: /home/{{ stylo_local_user }}/.centos-server-ca.cert
+  topic: {{ stylo_mqtt_topic }}
+

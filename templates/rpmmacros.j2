@@ -1,0 +1,3 @@
+# Switching to gpg agent signing
+%__gpg_check_password_cmd %{__gpg} gpg --batch --no-verbose --use-agent -u "%{_gpg_name}" -so -
+%__gpg_sign_cmd %{__gpg} gpg --batch --no-verbose --no-armor --use-agent --no-secmem-warning -u "%{_gpg_name}" -sbo %{__signature_filename} %{__plaintext_filename}'

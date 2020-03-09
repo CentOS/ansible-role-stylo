@@ -1,0 +1,14 @@
+# Functions
+f_log() {
+   echo "[+] $(date +%Y%m%d-%H:%M) stylo -> $*" >>$logfile
+}
+
+f_check() {
+  if [ "$?" -ne "0" ] ;then
+    f_log "ERROR, exiting .. check log"
+    if [ "$zabbix_send" = true ] ;then
+      zabbix_sender -c /etc/zabbix/zabbix_agentd.conf -k stylo.signing.status -o 1 >/dev/null
+    fi
+    exit 1
+  fi
+}

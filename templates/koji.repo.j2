@@ -1,0 +1,10 @@
+[c7-koji]
+name = Koji Builder tools
+baseurl = {{ stylo_kojihub_repo_url }}
+enabled=1
+{% if stylo_kojihub_repo_gpgcheck %}
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/{{ stylo_kojihub_repo_gpgkey }}
+{% else %}
+gpgcheck=0
+{% endif %}

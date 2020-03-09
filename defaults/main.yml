@@ -1,1 +1,60 @@
 # Defaults variables for role stylo
+
+# Worth knowing that this role doesn't touch gpg nor distribute/unlock keys for signing
+# This is a manual process (unlock-keys) but once unlocked in session, local cron will keep them in cache
+# and so process_tag process will be able to sign rpm on demand for keys configured in this role
+# see stylo_gpg_sigs settings for public key id in gnupg ring
+
+# Local user for stylo service
+stylo_local_user: stylo
+
+# gpg settings
+stylo_gpg_cache_ttl: 15552000
+stylo_gpg_sigs:
+  - name: cloud
+    key_id: 645d13aa
+  - name: storage
+    key_id: bb6f0535
+  - name: sclo
+    key_id: 3e0ccc20
+
+# push settings
+stylo_master_node: remote.node
+stylo_push_user: push
+stylo_mirror_basedir:
+stylo_buildlogs_basedir:
+stylo_debug_basedir:
+stylo_vault_basedir:
+
+# Needed pkgs
+stylo_pkgs:
+  - rpm
+  - rpm-sign
+  - gnupg2
+  - centos-packager
+  - PyYAML
+  - python-beanstalkc
+  - beanstalkd
+  - python-paho-mqtt
+
+# Koji cli part
+# Do we need to use specific repo to deploy newer/specific koji pkgs and newer rpm/rpm-sign
+stylo_kojihub_repo: True
+stylo_kojihub_repo_url: http://internal.repo.org/builder/$basearch/
+stylo_kojihub_repo_gpgcheck: True
+stylo_kojihub_repo_gpgkey: RPM-GPG-KEY-CentOS-Infra
+stylo_kojihub_url: https://cbs.dev.centos.org/kojihub
+stylo_koji_mountpoint: /mnt/kojishare
+stylo_koji_nfs_path: nfs-host.domain.com:/exports/kojishare
+stylo_koji_user_cert: admin.pem
+stylo_koji_ca_cert: 
+
+# Mqtt settings
+stylo_mqtt_host: mqtt.dev.centos.org
+stylo_mqtt_topic: koji
+
+# Zabbix/monitoring part
+kojihub_zabbix_templates:
+  - Template CentOS stylo
+kojihub_zabbix_groups:
+  - CentOS CBS koji hosts

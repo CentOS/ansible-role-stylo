@@ -1,0 +1,146 @@
+#!/usr/bin/python
+#
+# A utility to get the number of unsigned rpms for a given tag from koji
+#
+# Copyright (c) 2013 Red Hat
+#
+# Authors:
+#     Karsten Hopp <karsten@redhat.com>
+# Modified for use by CentOS for Koji/cbs.centos.org:
+#     Fabian Arrotin <arrfab@centos.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Library General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+import os
+import optparse
+import sys
+import koji
+import getpass
+import subprocess
+import yaml
+
+config_file = os.getenv('HOME')+'/stylo.yml'
+
+if os.path.exists(config_file):
+  with open(config_file, 'r') as ymlfile:
+      cfg = yaml.load(ymlfile)
+else:
+  print "%s config file not found !" % (config_file)
+  sys.exit(1)
+
+status = 0
+builds = []
+rpmdict = {}
+unsigned = []
+passphrase = ''
+KOJIHUB = cfg['koji']['url']
+KEYS = cfg['keys']
+
+usage = 'usage: %prog [options] key (build1, build2)'
+
+parser = optparse.OptionParser(usage=usage)
+parser.add_option('--tag',
+                  help='Koji tag to check, use instead of listing builds')
+parser.add_option('--inherit', action='store_true', default=False,
+                  help='Use tag inheritance to find builds.')
+parser.add_option('--just-numbers', action='store_true', default=False,
+                  help='Just show the number of unsigned rpms')
+parser.add_option('--just-list', action='store_true', default=False,
+                  help='Just list the unsigned rpms')
+parser.add_option('--arch',
+                  help='Architecture when checking secondary arches')
+# Get our options and arguments
+(opts, args) = parser.parse_args()
+
+# Check to see if we got any arguments
+if not args:
+    parser.print_help()
+    sys.exit(1)
+
+# Check to see if we either got a tag or some builds
+if opts.tag and len(args) > 2:
+    print('You must provide either a tag or a build.')
+    parser.print_help()
+    sys.exit(1)
+
+key = args[0]
+if not key in KEYS.keys():
+    print('Unknown key %s' % key)
+    parser.print_help()
+    sys.exit(1)
+
+# Reset the KOJIHUB if the target is a secondary arch
+if opts.arch:
+    KOJIHUB = 'http://%s.koji.armhfp-mbox.centos.org/kojihub' % opts.arch
+kojisession = koji.ClientSession(KOJIHUB)
+
+# Get a list of builds
+# If we have a tag option, get all the latest builds from that tag,
+# optionally using inheritance.  Otherwise take everything after the
+# key as a build.
+if opts.tag is not None:
+    builds = [build['nvr'] for build in
+              kojisession.listTagged(opts.tag, latest=False,
+                                     inherit=opts.inherit)]
+else:
+    builds = args[1:]
+
+builds = sorted(builds)
+
+# Build up a list of rpms to operate on
+# use multicall here to speed things up
+kojisession.multicall = True
+# first get build IDs for all the builds
+for b in builds:
+    # use strict for now to traceback on bad builds
+    kojisession.getBuild(b, strict=True)
+binfos = []
+for build, result in zip(builds, kojisession.multiCall()):
+    if isinstance(result, list):
+        binfos.append(result)
+    else:
+        errors.setdefault('Builds', []).append(build)
+        status += 1
+
+kojisession.multicall = True
+for [b] in binfos:
+    kojisession.listRPMs(buildID=b['id'])
+results = kojisession.multiCall()
+# stuff all the rpms into our rpm list
+for [rpms] in results:
+    for rpm in rpms:
+        rpmdict['%s.%s.rpm' % (rpm['nvr'], rpm['arch'])] = rpm['id']
+
+# Get unsigned packages
+kojisession.multicall = True
+# Query for the specific key we're looking for, no results means
+# that it isn't signed and thus add it to the unsigned list
+for rpm in rpmdict.keys():
+    kojisession.queryRPMSigs(rpm_id=rpmdict[rpm], sigkey=KEYS[key])
+
+results = kojisession.multiCall()
+for ([result], rpm) in zip(results, rpmdict.keys()):
+    if not result:
+        unsigned.append(rpm)
+
+if opts.just_list:
+    print('\n'.join(unsigned))
+    sys.exit(0)
+
+if opts.just_numbers:
+    print("%d" % len(unsigned))
+    sys.exit(0)
+
+sys.exit(status)

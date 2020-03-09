@@ -1,0 +1,17 @@
+- name: Ensuring we have some nfs pkgs installed
+  yum:
+    name: nfs-utils
+    state: installed
+ 
+- name: koji store mount point exist
+  file:
+    path: "{{ stylo_koji_mountpoint }}"
+    state: directory
+
+- name: Ensuring we have nfs koji store mounted
+  mount:
+    path: "{{ stylo_koji_mountpoint }}"
+    src: "{{ stylo_koji_nfs_path }}"
+    fstype: nfs
+    state: mounted
+

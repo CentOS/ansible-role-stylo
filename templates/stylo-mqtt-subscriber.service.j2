@@ -1,0 +1,17 @@
+[Unit]
+Description=Stylo MQTT subscriber
+DefaultDependencies=no
+After=network.target
+After=beanstalkd.target
+
+[Install]
+WantedBy=multi-user.target
+Alias=stylo-mqtt-subscriber.target
+
+[Service]
+Type=simple
+User={{ stylo_local_user }}
+Group={{ stylo_local_user }}
+ExecStart=/home/{{ stylo_local_user }}/stylo-code/mqtt_subscribe
+Restart=on-failure
+RestartSec=1

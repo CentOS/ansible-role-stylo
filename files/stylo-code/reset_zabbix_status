@@ -1,0 +1,7 @@
+#!/bin/bash
+source ~/stylo.cfg
+echo "Resetting zabbix status to normal state if needed"
+
+if [ "$zabbix_send" = true ] ;then
+  zabbix_sender -c /etc/zabbix/zabbix_agentd.conf -k stylo.signing.status -o 0 >/dev/null
+fi

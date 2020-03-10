@@ -54,9 +54,9 @@ done
 varcheck ${koji_tag}
 
 # Some parsing
-sig_level=$(echo $koji_tag|cut -f 4 -d '-')
+sig_level=$(echo $koji_tag|rev|cut -f 1 -d '-'|rev)
 sig_project=$(echo $koji_tag|cut -f 2 -d '-')
-sig_project_rel=$(echo $koji_tag|cut -f 3 -d '-')
+sig_project_rel=$(echo $koji_tag|rev|cut -f 2 -d '-'|rev)
 sig_rel=$(echo $koji_tag|cut -f 1 -d '-')
 sig=${sig_rel::-1} 
 dist=${sig_rel:(-1)}
@@ -66,8 +66,8 @@ sig_key=${!sig_gpg}
 f_log "Processing koji_tag [${koji_tag}] for SIG [${sig}] and release [${dist}] using GPG key [${sig_key}]"
 f_log "Verifying first if underlying GPG subsys works"
 if [ -e /home/$USER/logs/gpg.unready ];then
-  f_log "ERROR : GPG doesn't seem to be ready (locked keys)"
-  f_log "ERROR : Adding [${koji_tag}] to local file to be requeued"
+  f_log "[ERROR] : GPG doesn't seem to be ready (locked keys)"
+  f_log "[ERROR] : Adding [${koji_tag}] to local file to be requeued"
   echo "${koji_tag}" >> /home/$USER/logs/signing-queue
   /bin/false ; f_check
 fi
@@ -94,6 +94,13 @@ else
   exit 0
 fi
 
+# Specific SLO case using a parent repository/tag inheriting all rh or sclo tags
+if [ "$sig" == "sclo" ];then
+  f_log "[WARNING] SCLo SIG detected so overriding koji tag for dist-repo from [${koji_tag}] to [${sig_rel}-all-${sig_project_rel}-${sig_level}]"
+  export dist_repo_koji_tag="${sig_rel}-all-${sig_project_rel}-${sig_level}"
+else
+  export dist_repo_koji_tag="${koji_tag}"
+fi
 
 # Testing first we can reach koji
 f_log "Testing we can reach koji"
@@ -136,10 +143,10 @@ fi
 
 # Verifying if we are asked to still regen repo
 if [ "$regen_repo" -eq "1" ] ;then
-  f_log "Signed pkgs or -r flag called to force dist-repo. Calling koji dist-repo for tag [${koji_tag}] and waiting for results ..."
-  dist_repo_task=$(cbs dist-repo ${dist_repo_options} ${koji_tag} ${sig_key} 2>&1)
+  f_log "Signed pkgs or -r flag called to force dist-repo. Calling koji dist-repo for tag [${dist_repo_koji_tag}] with options ${dist_repo_options} and waiting for results ..."
+  dist_repo_task=$(cbs dist-repo ${dist_repo_options} ${dist_repo_koji_tag} ${sig_key} 2>&1) 
   if [ "$?" -ne "0" ] ; then
-    f_log "ERROR: koji dist-repo failed :"
+    f_log "[ERROR] : koji dist-repo failed :"
     f_log "$dist_repo_task"
     /bin/false ; f_check
   else
@@ -148,7 +155,7 @@ if [ "$regen_repo" -eq "1" ] ;then
 fi
 
 # Detect enabled architectures to know what to push and where
-tag_arches=$(cbs taginfo ${koji_tag}|grep Arches|cut -f 2 -d ':')
+tag_arches=$(cbs taginfo ${dist_repo_koji_tag}|grep Arches|cut -f 2 -d ':')
 
 # Trying to push to master node
 if [ "$regen_repo" -eq "1" ] ;then
@@ -159,30 +166,36 @@ if [ "$regen_repo" -eq "1" ] ;then
     else
       contentdir="centos"
     fi
-    f_log "Testing dir ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
-    ssh ${push_user}@${master} "test -d ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel} || mkdir -p ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
+    if [ "$sig" == "sclo" ] ; then
+      full_mirror_dir="${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project_rel}"
+    else
+      full_mirror_dir="${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
+    fi
+    f_log "Testing target dir [${full_mirror_dir}] exists"
+    ssh ${push_user}@${master} "test -d ${full_mirror_dir} || mkdir -p ${full_mirror_dir}"
     f_check
-    f_log "Pushing to ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
-    rsync -avH ${repo_dist_dir}/${koji_tag}/latest/${arch}/ ${push_user}@${master}:/${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debuginfo*.rpm' >> ${logfile}
+    f_log "Pushing to [${full_mirror_dir}]"
+    rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debuginfo*.rpm' >> ${logfile}
     f_check
     f_log "Signing repomd.xml with gpg key [${sig_key}]"
     repomd_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
     pushd ${repomd_stg_dir} > /dev/null
-    cp ${repo_dist_dir}/${koji_tag}/latest/${arch}/repodata/repomd.xml ./
+    cp ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/repodata/repomd.xml ./
     gpg --batch --detach-sig --armor -b --use-agent --local-user ${sig_key} repomd.xml
     f_check
-    f_log "Uploading repomd.xml.asc to ${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}/repodata"
-    scp -q repomd.xml.asc ${push_user}@${master}:/${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}/repodata/repomd.xml.asc
+    f_log "Uploading repomd.xml.asc to [${full_mirror_dir}/repodata]"
+    scp -q repomd.xml.asc ${push_user}@${master}:/${full_mirror_dir}/repodata/repomd.xml.asc
     f_check
     popd >/dev/null
     rm -Rf ${repomd_stg_dir}
     # Now that we pushed prod tree, we need to process debug
     if [ "$push_debug" -eq "1" ] ; then
-      f_log "Testing debug dir ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
+      f_log "[${sig_level}] detected so pushing signed debuginfo packages"
+      f_log "Testing debug dir [${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}]"
       ssh ${push_user}@${master} "test -d  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch} || mkdir -p  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
       f_check
-      f_log "Pushing debuginfo packages into ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
-      find ${repo_dist_dir}/${koji_tag}/latest/${arch}/ -iname '*debug*.rpm' -exec scp -q {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
+      f_log "Pushing debuginfo packages into [${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}]"
+      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ -iname '*debug*.rpm' -exec scp -q {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
       f_check
       f_log "Remotely triggering repodata regen on [${master}] in ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/"
       ssh ${push_user}@${master} "cd ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ ; createrepo_c -q -d --workers 8 ./"
@@ -192,14 +205,20 @@ if [ "$regen_repo" -eq "1" ] ;then
     fi
     # Same but for src.rpm
     if [ "$push_vault" -eq "1" ] ; then
-      f_log "Testing Vault Directory ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
-      ssh ${push_user}@${master} "test -d ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/ || mkdir -p  ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      f_log "[${sig_level}] detected so pushing signed src.rpm packages"
+      if [ "$sig" == "sclo" ];then
+        full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project_rel}/"
+      else
+        full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      fi
+      f_log "Testing Vault Directory [${full_vault_dir}]"
+      ssh ${push_user}@${master} "test -d ${full_vault_dir}/ || mkdir -p ${full_vault_dir}"
       f_check
-      f_log "Pushing src.rpm packages into ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
-      find ${repo_dist_dir}/${koji_tag}/latest/src/ -iname '*src.rpm' -exec scp -q {} ${push_user}@${master}:${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/ \;
+      f_log "Pushing src.rpm packages into [${full_vault_dir}]"
+      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ -iname '*src.rpm' -exec scp -q {} ${push_user}@${master}:${full_vault_dir}/ \;
       f_check
-      f_log "Remotely triggering repodata regen on [${master}] in ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
-      ssh ${push_user}@${master} "cd ${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}// ; createrepo_c -q -d --workers 8 ./"
+      f_log "Remotely triggering repodata regen on [${master}] in [${full_vault_dir}]"
+      ssh ${push_user}@${master} "cd ${full_vault_dir} ; createrepo_c -q -d --workers 8 ./"
       f_check
     else
       f_log "No src.rpm packages to push for [${sig_level}]"

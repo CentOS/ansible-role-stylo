@@ -54,7 +54,7 @@ stylo_mqtt_host: mqtt.dev.centos.org
 stylo_mqtt_topic: koji
 
 # Zabbix/monitoring part
-kojihub_zabbix_templates:
+stylo_zabbix_templates:
   - Template CentOS stylo
-kojihub_zabbix_groups:
+stylo_zabbix_groups:
   - CentOS CBS koji hosts

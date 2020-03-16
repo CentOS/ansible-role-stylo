@@ -195,7 +195,7 @@ if [ "$regen_repo" -eq "1" ] ;then
       ssh ${push_user}@${master} "test -d  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch} || mkdir -p  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
       f_check
       f_log "Pushing debuginfo packages into [${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}]"
-      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ -iname '*debug*.rpm' -exec scp -q {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
+      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ -iname '*debug*.rpm' -exec rsync -a {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
       f_check
       f_log "Remotely triggering repodata regen on [${master}] in ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/"
       ssh ${push_user}@${master} "cd ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ ; createrepo_c -q -d --workers 8 ./"
@@ -215,7 +215,7 @@ if [ "$regen_repo" -eq "1" ] ;then
       ssh ${push_user}@${master} "test -d ${full_vault_dir}/ || mkdir -p ${full_vault_dir}"
       f_check
       f_log "Pushing src.rpm packages into [${full_vault_dir}]"
-      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ -iname '*src.rpm' -exec scp -q {} ${push_user}@${master}:${full_vault_dir}/ \;
+      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ -iname '*src.rpm' -exec rsync -a {} ${push_user}@${master}:${full_vault_dir}/ \;
       f_check
       f_log "Remotely triggering repodata regen on [${master}] in [${full_vault_dir}]"
       ssh ${push_user}@${master} "cd ${full_vault_dir} ; createrepo_c -q -d --workers 8 ./"

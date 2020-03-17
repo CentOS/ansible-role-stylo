@@ -13,6 +13,7 @@ source ~/stylo.cfg
 source ~/stylo-code/functions
 logfile="${log_dir}/stylo.log"
 regen_repo="0"
+src_pushed="0"
 
 function usage() {
 cat << EOF
@@ -195,7 +196,7 @@ if [ "$regen_repo" -eq "1" ] ;then
       ssh ${push_user}@${master} "test -d  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch} || mkdir -p  ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}"
       f_check
       f_log "Pushing debuginfo packages into [${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}]"
-      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ -iname '*debug*.rpm' -exec rsync -a {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
+      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ -type f -iname '*debug*.rpm' -exec rsync -a {} ${push_user}@${master}:${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ \;
       f_check
       f_log "Remotely triggering repodata regen on [${master}] in ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/"
       ssh ${push_user}@${master} "cd ${debug_basedir}/${contentdir}/${dist}/${sig}/${arch}/ ; createrepo_c -q -d --workers 8 ./"
@@ -204,7 +205,7 @@ if [ "$regen_repo" -eq "1" ] ;then
       f_log "No debug for [${sig_level}] so nothing to push out to CDN"
     fi
     # Same but for src.rpm
-    if [ "$push_vault" -eq "1" ] ; then
+    if [[ "$push_vault" -eq "1" ]] && [[ "$src_pushed" -eq "0" ]] && [[ "$arch" == "x86_64" ]] ; then
       f_log "[${sig_level}] detected so pushing signed src.rpm packages"
       if [ "$sig" == "sclo" ];then
         full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project_rel}/"
@@ -215,13 +216,14 @@ if [ "$regen_repo" -eq "1" ] ;then
       ssh ${push_user}@${master} "test -d ${full_vault_dir}/ || mkdir -p ${full_vault_dir}"
       f_check
       f_log "Pushing src.rpm packages into [${full_vault_dir}]"
-      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ -iname '*src.rpm' -exec rsync -a {} ${push_user}@${master}:${full_vault_dir}/ \;
+      find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ -type f -iname '*src.rpm' -exec rsync -a {} ${push_user}@${master}:${full_vault_dir}/ \;
       f_check
       f_log "Remotely triggering repodata regen on [${master}] in [${full_vault_dir}]"
       ssh ${push_user}@${master} "cd ${full_vault_dir} ; createrepo_c -q -d --workers 8 ./"
       f_check
+      export src_pushed="1"
     else
-      f_log "No src.rpm packages to push for [${sig_level}]"
+      f_log "No src.rpm packages to push for [${sig_level}], or ignored for arch [${arch}]"
     fi
   done
 fi

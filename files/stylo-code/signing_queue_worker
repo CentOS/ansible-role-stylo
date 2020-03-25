@@ -30,11 +30,23 @@ def main():
       print '[%s] : Waiting for tag/untag operations in signing queue' % (time.asctime())
       job = bs.reserve()
       msg_payload = json.loads(job.body)
-
-      job.delete()
-      print "[%s] : Launching job 'process-tag -t %s -r'" % (time.asctime(),msg_payload['tag'])
       process_koji_tag_cmd = "/home/stylo/stylo-code/process-tag -t %s -r" % (msg_payload['tag'])
-      process_koji_tag = subprocess.call(process_koji_tag_cmd, shell=True)  
+      time.sleep(2)
+      waiting_jobs = bs.stats_tube('signing')['current-jobs-ready'] 
+      if waiting_jobs > 0:     
+        next_job = bs.reserve()
+        next_jobpayload = json.loads(next_job.body) 
+        if msg_payload['tag'] == next_jobpayload['tag']:
+          job.delete()
+          next_job.release()
+        else:
+          job.delete()
+          print "[%s] : Launching job 'process-tag -t %s -r'" % (time.asctime(),msg_payload['tag'])
+          process_koji_tag = subprocess.call(process_koji_tag_cmd, shell=True)  
+      else:
+        job.delete()
+        print "[%s] : Launching job 'process-tag -t %s -r'" % (time.asctime(),msg_payload['tag'])
+        process_koji_tag = subprocess.call(process_koji_tag_cmd, shell=True)  
 
     except beanstalkc.SocketError:
       bs_connection = False

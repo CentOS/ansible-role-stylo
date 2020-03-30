@@ -122,21 +122,24 @@ if [ "${need_sign}" -eq "1" ] ; then
   else
     export regen_repo="1"
     f_log "Unsigned packages found. Downloading ..."
-    signing_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
-    pushd $signing_stg_dir >/dev/null
-    for pkg in $(find_unsigned_rpms --tag=${koji_tag} --just-list sig-${sig}) ; do
-	    f_log "Downloading pkg [${pkg}]"
-      cbs download-build --debuginfo --rpm ${pkg} --quiet
-      f_check
-      f_log "Signing pkg [${pkg}] with gpg key [${sig_key}]"
-      rpmsign --define "_gpg_name ${sig_key}" --addsign ${pkg} >/dev/null
-      f_check
-      f_log "Importing signed [${pkg}] back into koji ..."
-      cbs import-sig ${pkg} --write >/dev/null
-      f_check
+    while [ "$unsigned_pkgs" -ne "0" ] ; do 
+      signing_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
+      pushd $signing_stg_dir >/dev/null
+      for pkg in $(find_unsigned_rpms --tag=${koji_tag} --just-list sig-${sig}) ; do
+	      f_log "Downloading pkg [${pkg}]"
+        cbs download-build --debuginfo --rpm ${pkg} --quiet
+        f_check
+        f_log "Signing pkg [${pkg}] with gpg key [${sig_key}]"
+        rpmsign --define "_gpg_name ${sig_key}" --addsign ${pkg} >/dev/null
+        f_check
+        f_log "Importing signed [${pkg}] back into koji ..."
+        cbs import-sig ${pkg} --write >/dev/null
+        f_check
+      done
+      popd >/dev/null
+      rm -Rf ${signing_stg_dir}
+      unsigned_pkgs=$(find_unsigned_rpms --tag=${koji_tag} --just-numbers sig-${sig})
     done
-    popd >/dev/null
-    rm -Rf ${signing_stg_dir}
   fi
 else
   f_log "Not checking for unsigned pkgs for tag [${koji_tag}] as level is [${sig_level}]"

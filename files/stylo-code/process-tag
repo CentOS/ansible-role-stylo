@@ -73,6 +73,14 @@ if [ -e /home/$USER/logs/gpg.unready ];then
   /bin/false ; f_check
 fi
 
+# Specific SLO case using a parent repository/tag inheriting all rh or sclo tags
+if [ "$sig" == "sclo" ];then
+  f_log "[WARNING] SCLo SIG detected so overriding koji tag for dist-repo from [${koji_tag}] to [${sig_rel}-all-${sig_project_rel}-${sig_level}]"
+  export dist_repo_koji_tag="${sig_rel}-all-${sig_project_rel}-${sig_level}"
+else
+  export dist_repo_koji_tag="${koji_tag}"
+fi
+
 if [ "$sig_level" == "candidate" ] ;then
   f_log "Not processing at all candidate tag for [${koji_tag}]"
   exit 0
@@ -80,27 +88,19 @@ elif [ "$sig_level" == "testing" ]; then
   need_sign="0"
   push_debug="0"
   push_vault="0"
-  dist_repo_options="--non-latest --allow-missing-signatures"
+  dist_repo_options="--non-latest --allow-missing-signatures ${dist_repo_koji_tag} aaaaaaa"
   target="buildlogs_basedir"
   target_dir=${!target}
 elif [ "$sig_level" == "release" ]; then
   need_sign="1"
   push_debug="1"
   push_vault="1"
-  dist_repo_options="--non-latest --with-src --split-debuginfo"
+  dist_repo_options="--non-latest --with-src --split-debuginfo ${dist_repo_koji_tag} ${sig_key}"
   target="mirror_basedir"
   target_dir=${!target}
 else
   f_log "Incorrect level [${sig_level}] (not in candidate/testing/release). Exiting"
   exit 0
-fi
-
-# Specific SLO case using a parent repository/tag inheriting all rh or sclo tags
-if [ "$sig" == "sclo" ];then
-  f_log "[WARNING] SCLo SIG detected so overriding koji tag for dist-repo from [${koji_tag}] to [${sig_rel}-all-${sig_project_rel}-${sig_level}]"
-  export dist_repo_koji_tag="${sig_rel}-all-${sig_project_rel}-${sig_level}"
-else
-  export dist_repo_koji_tag="${koji_tag}"
 fi
 
 # Testing first we can reach koji
@@ -148,7 +148,7 @@ fi
 # Verifying if we are asked to still regen repo
 if [ "$regen_repo" -eq "1" ] ;then
   f_log "Signed pkgs or -r flag called to force dist-repo. Calling koji dist-repo for tag [${dist_repo_koji_tag}] with options ${dist_repo_options} and waiting for results ..."
-  dist_repo_task=$(cbs dist-repo ${dist_repo_options} ${dist_repo_koji_tag} ${sig_key} 2>&1) 
+  dist_repo_task=$(cbs dist-repo ${dist_repo_options} 2>&1) 
   if [ "$?" -ne "0" ] ; then
     f_log "[ERROR] : koji dist-repo failed :"
     f_log "$dist_repo_task"

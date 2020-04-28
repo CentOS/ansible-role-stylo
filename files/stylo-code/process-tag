@@ -88,7 +88,7 @@ elif [ "$sig_level" == "testing" ]; then
   need_sign="0"
   push_debug="0"
   push_vault="0"
-  dist_repo_options="--non-latest --allow-missing-signatures ${dist_repo_koji_tag} aaaaaaa"
+  dist_repo_options="--non-latest --split-debuginfo --allow-missing-signatures ${dist_repo_koji_tag} aaaaaaa"
   target="buildlogs_basedir"
   target_dir=${!target}
 elif [ "$sig_level" == "release" ]; then

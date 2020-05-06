@@ -179,7 +179,7 @@ if [ "$regen_repo" -eq "1" ] ;then
     ssh ${push_user}@${master} "test -d ${full_mirror_dir} || mkdir -p ${full_mirror_dir}"
     f_check
     f_log "Pushing to [${full_mirror_dir}]"
-    rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debuginfo*.rpm' >> ${logfile}
+    rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debugsource*.rpm' --filter '- *debuginfo*.rpm' >> ${logfile}
     f_check
     f_log "Signing repomd.xml with gpg key [${sig_key}]"
     repomd_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)

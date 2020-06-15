@@ -59,10 +59,10 @@ sig_level=$(echo $koji_tag|rev|cut -f 1 -d '-'|rev)
 sig_project=$(echo $koji_tag|cut -f 2 -d '-')
 sig_project_rel=$(echo $koji_tag|rev|cut -f 2 -d '-'|rev)
 sig_rel=$(echo $koji_tag|cut -f 1 -d '-')
-sig=${sig_rel::-1} 
+sig=${sig_rel::-1}
 dist=${sig_rel:(-1)}
 sig_gpg="gpg_$sig"
-sig_key=${!sig_gpg} 
+sig_key=${!sig_gpg}
 
 f_log "Processing koji_tag [${koji_tag}] for SIG [${sig}] and release [${dist}] using GPG key [${sig_key}]"
 f_log "Verifying first if underlying GPG subsys works"
@@ -148,7 +148,7 @@ fi
 # Verifying if we are asked to still regen repo
 if [ "$regen_repo" -eq "1" ] ;then
   f_log "Signed pkgs or -r flag called to force dist-repo. Calling koji dist-repo for tag [${dist_repo_koji_tag}] with options ${dist_repo_options} and waiting for results ..."
-  dist_repo_task=$(cbs dist-repo ${dist_repo_options} 2>&1) 
+  dist_repo_task=$(cbs dist-repo ${dist_repo_options} 2>&1)
   if [ "$?" -ne "0" ] ; then
     f_log "[ERROR] : koji dist-repo failed :"
     f_log "$dist_repo_task"
@@ -234,5 +234,3 @@ fi
 # Ending
 f_log "Finished processing [${koji_tag}]"
 f_log "================================================================"
-
-

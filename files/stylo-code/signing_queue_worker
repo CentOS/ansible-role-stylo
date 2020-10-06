@@ -31,7 +31,7 @@ def main():
       job = bs.reserve()
       msg_payload = json.loads(job.body)
       process_koji_tag_cmd = "/home/stylo/stylo-code/process-tag -t %s -r" % (msg_payload['tag'])
-      time.sleep(2)
+      time.sleep(4)
       waiting_jobs = bs.stats_tube('signing')['current-jobs-ready'] 
       if waiting_jobs > 0:     
         next_job = bs.reserve()

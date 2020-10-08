@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+import beanstalkc
+
+bs = beanstalkc.Connection()
+queue = 'signing'
+bs.watch(queue)
+readyjobs = bs.stats_tube(queue)['current-jobs-ready']
+while readyjobs > 0 :
+  job = bs.reserve()
+  job.delete()
+  readyjobs = readyjobs - 1

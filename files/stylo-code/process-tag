@@ -165,7 +165,7 @@ if [ "$regen_repo" -eq "1" ] ;then
 fi
 
 # Detect enabled architectures to know what to push and where
-tag_arches=$(cbs taginfo ${dist_repo_koji_tag}|grep Arches|cut -f 2 -d ':')
+tag_arches=$(cbs taginfo ${dist_repo_koji_tag}|grep Arches|cut -f 2 -d ':'|sed 's/armv7hl/armhfp/g)
 
 # Trying to push to master node
 if [ "$regen_repo" -eq "1" ] ;then

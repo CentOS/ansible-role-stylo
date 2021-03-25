@@ -8,6 +8,7 @@
   copy:
     src: "{{ pkistore }}/koji/{{ stylo_koji_user_cert }}"
     dest: "/home/{{ stylo_local_user }}/.centos.cert"
+  notify: restart_stylo-mqtt-subscriber  
   tags:
     - tls
 

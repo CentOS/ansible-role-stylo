@@ -22,6 +22,7 @@ stylo_gpg_sigs:
 stylo_master_node: remote.node
 stylo_push_user: push
 stylo_mirror_basedir:
+stylo_mirror_stream_basedir:
 stylo_buildlogs_basedir:
 stylo_debug_basedir:
 stylo_vault_basedir:

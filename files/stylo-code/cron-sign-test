@@ -10,7 +10,7 @@ source ~/stylo-code/functions
 
 for key in $(gpg --list-secret-keys|egrep -v secring|grep ^sec|awk '{print $2}'|cut -f 2 -d '/') ; do  
   candidate_file=$(mktemp)
-  timeout 10 gpg --batch --sign -b --use-agent --local-user ${key} ${candidate_file} >/dev/null 2>&1 
+  timeout 10 gpg --batch --sign -b --use-agent --local-user ${key}! ${candidate_file} >/dev/null 2>&1 
   if [ "$?" -ne "0" ] ; then     
     /bin/rm ${candidate_file}
     f_log "Not possible to sign with key ${key}"

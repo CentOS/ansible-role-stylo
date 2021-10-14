@@ -145,7 +145,7 @@ if [ "${need_sign}" -eq "1" ] ; then
         cbs download-build --debuginfo --rpm ${pkg} --quiet
         f_check
         f_log "Signing pkg [${pkg}] with gpg key [${sig_key}]"
-        rpmsign --define "_gpg_name ${sig_key}" --addsign ${pkg} >/dev/null
+        rpmsign --define "_gpg_name ${sig_key}!" --addsign ${pkg} >/dev/null
         f_check
         f_log "Importing signed [${pkg}] back into koji ..."
         cbs import-sig ${pkg} --write >/dev/null
@@ -207,7 +207,7 @@ if [ "$regen_repo" -eq "1" ] ;then
     repomd_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
     pushd ${repomd_stg_dir} > /dev/null
     cp ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/repodata/repomd.xml ./
-    gpg --batch --detach-sig --armor -b --use-agent --local-user ${sig_key} repomd.xml
+    gpg --batch --detach-sig --armor -b --use-agent --local-user ${sig_key}! repomd.xml
     f_check
     f_log "Uploading repomd.xml.asc to [${full_mirror_dir}/repodata]"
     scp -q repomd.xml.asc ${push_user}@${master}:/${full_mirror_dir}/repodata/repomd.xml.asc

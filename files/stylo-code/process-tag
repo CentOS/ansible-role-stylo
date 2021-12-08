@@ -199,6 +199,8 @@ if [ "$regen_repo" -eq "1" ] ;then
     if [ "$dist" == "9-stream" ] ; then
       # also pushing debuginfo and then source
       rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- kojipkgs' --filter '- pkglist' --delete-after  >> ${logfile}
+      f_log "Incrementing COMPOSE_ID for ${dist}"
+      ssh ${push_user}@${master} "echo $(date +%Y%m%d-%H%M%S) > ${target_dir}/${dist}/COMPOSE_ID"
     else
       rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debugsource*.rpm' --filter '+ *debuginfod-*' --filter '- *debuginfo*.rpm' >> ${logfile}
     fi

@@ -197,6 +197,9 @@ if [ "$regen_repo" -eq "1" ] ;then
     f_check
     f_log "Pushing to [${full_mirror_dir}]"
     if [ "$dist" == "9-stream" ] ; then
+      # Create a marker that the repository is currently being updated.
+      # This will automatically be removed by rsync after the sync thanks to '--delete-after'.
+      ssh ${push_user}@${master} "echo $(date +%Y%m%d-%H%M%S) > ${target_dir}/${dist}/.sync_in_progress"
       # also pushing debuginfo and then source
       rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- kojipkgs' --filter '- pkglist' --delete-after  >> ${logfile}
       f_log "Incrementing COMPOSE_ID for ${dist}"

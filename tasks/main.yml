@@ -56,11 +56,14 @@
     mode: 0700
     owner: "{{ stylo_local_user }}"
 
-- name: Configuring gpg-agent
+- name: Configuring gnupg
   template:
-    src: gpg-agent.conf.j2
-    dest: "/home/{{ stylo_local_user }}/.gnupg/gpg-agent.conf"
+    src: "{{ item }}.j2"
+    dest: "/home/{{ stylo_local_user }}/.gnupg/{{ item }}"
     owner: "{{ stylo_local_user }}"
+  with_items:
+    - gpg-agent.conf
+    - gpg.conf
   tags:
     - gpg
     - config

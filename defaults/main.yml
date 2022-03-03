@@ -10,6 +10,7 @@ stylo_local_user: stylo
 
 # gpg settings
 stylo_gpg_cache_ttl: 15552000
+stylo_gpg_digest_algo: SHA512
 stylo_gpg_sigs:
   - name: cloud
     key_id: 645d13aa

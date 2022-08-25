@@ -24,11 +24,11 @@ f_gendud() {
   for arch in ${tag_arches} ; do
     if [ -d "${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/" ] ; then
       pushd ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/ >/dev/null
-      test -d ../../dud || mkdir -p ../../dud/
+      test -d ../../DriverDiscs || mkdir -p ../../DriverDiscs/
       for rpm_pkg in *.rpm ; do
         iso_filename="${rpm_pkg/.rpm/.iso}"
         f_log "Testing if we have [${iso_filename}]"
-        if [ -e "../../dud/${iso_filename}" ]; then
+        if [ -e "../../DriverDiscs/${iso_filename}" ]; then
           f_log "[${iso_filename}] already present"
         else
           f_log "Building DuD [${iso_filename}]"
@@ -41,7 +41,7 @@ f_gendud() {
             createrepo_c --quiet ./
             popd >/dev/null
             mkisofs -quiet -lR -V OEMDRV -input-charset utf8 -o ${iso_filename} ./dd
-            cp ${iso_filename} ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/dud/
+            cp ${iso_filename} ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/DriverDiscs/
           popd > /dev/null
           rm -Rf ${tmp_dir}
         fi

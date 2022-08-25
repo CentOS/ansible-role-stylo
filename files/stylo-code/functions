@@ -12,3 +12,42 @@ f_check() {
     exit 1
   fi
 }
+
+# this function will only be triggered for kmods SIG
+# it will be called after rpms will be signed and imported back into koji
+# and after dist-repo task, to have repodata/Packages in place
+# we'll just verify if for each kmod-*.rpm we have a .iso file and if not generate it
+
+f_gendud() {
+  
+  f_log "Building DuD images for tag [${dist_repo_koji_tag}]"
+  for arch in ${tag_arches} ; do
+    if [ -d "${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/" ] ; then
+      pushd ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/ >/dev/null
+      test -d ../../dud || mkdir -p ../../dud/
+      for rpm_pkg in *.rpm ; do
+        iso_filename="${rpm_pkg/.rpm/.iso}"
+        f_log "Testing if we have [${iso_filename}]"
+        if [ -e "../../dud/${iso_filename}" ]; then
+          f_log "[${iso_filename}] already present"
+        else
+          f_log "Building DuD [${iso_filename}]"
+          tmp_dir="$(mktemp -d)"
+          pushd ${tmp_dir} >/dev/null
+            mkdir -p {./dd/rpms/${arch}/,./dd/src}
+            echo -e "Driver Update Disk version 3\c" > ./dd/rhdd3
+            pushd dd/rpms/${arch} >/dev/null
+            cp ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/${rpm_pkg} ./
+            createrepo_c --quiet ./
+            popd >/dev/null
+            mkisofs -quiet -lR -V OEMDRV -input-charset utf8 -o ${iso_filename} ./dd
+            cp ${iso_filename} ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/dud/
+          popd > /dev/null
+          rm -Rf ${tmp_dir}
+        fi
+      done
+      popd > /dev/null
+    fi
+  done
+  f_log "Finished building DuD iso images for tag [${dist_repo_koji_tag}]"
+}

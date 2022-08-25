@@ -176,6 +176,12 @@ fi
 # Detect enabled architectures to know what to push and where
 tag_arches=$(cbs taginfo ${dist_repo_koji_tag}|grep Arches|cut -f 2 -d ':'|sed 's/armv7hl/armhfp/g')
 
+# Plumbing specific function for kmods SIG
+if [ "${sig}" == "kmods" ] ; then
+  f_log "KMOD SIG function for DuD"
+  f_gendud
+fi
+
 # Trying to push to master node
 if [ "$regen_repo" -eq "1" ] ;then
   f_log "Verifying if we have correct target dir before trying to push ..."

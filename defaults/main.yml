@@ -38,6 +38,7 @@ stylo_pkgs:
   - python-beanstalkc
   - beanstalkd
   - python-paho-mqtt
+  - genisoimage
 
 # Koji cli part
 # Do we need to use specific repo to deploy newer/specific koji pkgs and newer rpm/rpm-sign

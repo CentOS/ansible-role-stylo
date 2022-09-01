@@ -100,7 +100,7 @@ elif [ "$sig_level" == "testing" ]; then
 elif [ "$sig_level" == "release" ]; then
   need_sign="1"
   # Pushing to mirrors but different starting from 9-stream and also debug/vault pushed all together
-  if [ "$dist" == "9-stream" ] ; then
+  if [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
     push_debug="0"
     push_vault="1"
     dist_repo_options="--non-latest --with-src --split-debuginfo ${dist_repo_koji_tag} ${sig_key}"
@@ -193,7 +193,7 @@ if [ "$regen_repo" -eq "1" ] ;then
     fi
     if [ "$sig" == "sclo" ] ; then
       full_mirror_dir="${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project_rel}"
-    elif [ "$dist" == "9-stream" ] ; then
+    elif [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
       full_mirror_dir="${target_dir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
     else
       full_mirror_dir="${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
@@ -202,7 +202,7 @@ if [ "$regen_repo" -eq "1" ] ;then
     ssh ${push_user}@${master} "test -d ${full_mirror_dir} || mkdir -p ${full_mirror_dir}"
     f_check
     f_log "Pushing to [${full_mirror_dir}]"
-    if [ "$dist" == "9-stream" ] ; then
+    if [ "${dist}" == "9-stream" ] || [ "${dist}" == "9" ] ; then
       # also pushing debuginfo and then source
       rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- kojipkgs' --filter '- pkglist' --delete-after  >> ${logfile}
       f_log "Incrementing COMPOSE_ID for ${dist}"
@@ -242,7 +242,7 @@ if [ "$regen_repo" -eq "1" ] ;then
       f_log "[${sig_level}] detected so pushing signed src.rpm packages"
       if [ "$sig" == "sclo" ];then
         full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project_rel}/"
-      elif [[ "$dist" == "9-stream" ]] ; then
+      elif [[ "$dist" == "9-stream" ]] || [[ "$dist" == "9" ]] ; then
         full_vault_dir="${target_dir}/${dist}/${sig}/source/${sig_project}-${sig_project_rel}/"
       else
         full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
@@ -252,7 +252,7 @@ if [ "$regen_repo" -eq "1" ] ;then
       f_check
       f_log "Pushing src.rpm packages into [${full_vault_dir}]"
       # for 9-stream we'll just rsync the generated src directory to main mirror
-      if [ "$dist" == "9-stream" ]; then
+      if [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
         rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ ${push_user}@${master}:/${full_vault_dir}/ --filter '- kojipkgs' --filter '- pkglist' --delete-after  >> ${logfile}
         f_check
       else

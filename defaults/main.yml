@@ -9,6 +9,7 @@
 stylo_local_user: stylo
 
 # gpg settings
+# Defining also all SIGs and each time (lowercase) the gpg pub key id to use to know how to sign for specific tags
 stylo_gpg_cache_ttl: 15552000
 stylo_gpg_digest_algo: SHA512
 stylo_gpg_sigs:
@@ -20,7 +21,9 @@ stylo_gpg_sigs:
     key_id: 3e0ccc20
 
 # push settings
+# Which node to push generated repositories to
 stylo_master_node: remote.node
+# Which target user to use for ssh push : it needs obviously to have ssh pub key on that host/user
 stylo_push_user: push
 stylo_mirror_basedir:
 stylo_mirror_stream_basedir:
@@ -43,16 +46,18 @@ stylo_pkgs:
 # Koji cli part
 # Do we need to use specific repo to deploy newer/specific koji pkgs and newer rpm/rpm-sign
 stylo_kojihub_repo: True
-stylo_kojihub_repo_url: http://internal.repo.org/builder/$basearch/
-stylo_kojihub_repo_gpgcheck: True
 stylo_kojihub_repo_gpgkey: RPM-GPG-KEY-CentOS-Infra
-stylo_kojihub_url: https://cbs.dev.centos.org/kojihub
+
+# How to mount kojishare/nfs (we need to have access RW for DuD .iso creation 
 stylo_koji_mountpoint: /mnt/kojishare
 stylo_koji_nfs_path: nfs-host.domain.com:/exports/kojishare
+
+# Koji user TLS we'll use to interact with kojihub
 stylo_koji_user_cert: admin.pem
 stylo_koji_ca_cert: 
 
-# Mqtt settings
+# Mqtt broker settings (we'll be using stylo_koji_user_cert to auth against it
+# So it should be first allowed in mqtt acl on the mqtt broker host
 stylo_mqtt_host: mqtt.dev.centos.org
 stylo_mqtt_topic: koji
 

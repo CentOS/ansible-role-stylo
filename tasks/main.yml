@@ -126,6 +126,20 @@
     minute: "*/2"
     user: "{{ stylo_local_user }}"
 
+- block:
+    - name: Install rngd/entropy packages
+      yum:
+        name: rng-tools
+        state: installed
+
+    - name: Ensuring rngd service is started/enabled
+      service:
+        name: rngd
+        state: started
+        enabled: True
+  tags:
+    - rngd
+    - entropy
 
 - block:
     - name: Configuring agent in Zabbix server

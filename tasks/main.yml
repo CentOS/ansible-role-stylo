@@ -154,4 +154,17 @@
     - monitoring
   when: zabbix_api_srv is defined
 
-
+- block:
+    - name: Distribute TLS validity check script
+      template:
+        src: stylo-tls-check.j2
+        dest: /usr/libexec/centos/stylo-tls-check
+        mode: '0750'
+        owner: root
+    - name: Reporting TLS validity value to zabbix
+      cron:
+        name: koji tls cert check
+        job: /usr/libexec/centos/stylo-tls-check
+        minute: '*/30'
+  tags:
+    - monitoring

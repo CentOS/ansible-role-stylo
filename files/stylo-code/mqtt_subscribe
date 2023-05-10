@@ -14,13 +14,13 @@ config_file = os.getenv('HOME')+'/stylo.yml'
 
 if os.path.exists(config_file):
   with open(config_file, 'r') as ymlfile:
-      cfg = yaml.load(ymlfile)
+      cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
 else:
-  print "%s config file not found !" % (config_file)
+  print("%s config file not found !" % (config_file))
   sys.exit(1)
 
 mqtt_host = cfg['mqtt']['host']
-mqtt_port = cfg['mqtt']['port']
+mqtt_port = int(cfg['mqtt']['port'])
 mqtt_tls_cert = cfg['mqtt']['tls_cert']
 mqtt_tls_key = cfg['mqtt']['tls_key']
 mqtt_tls_insecure = cfg['mqtt']['tls_insecure']
@@ -33,14 +33,13 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, message):
   msg_payload = json.loads(str(message.payload.decode("utf-8")))
-  msg_topic = str(message.topic.decode("utf-8"))
-  print "[%s] : Received incoming request for tag [%s]" % (time.asctime(), msg_payload['tag'])
+  print("[%s] : Received incoming request for tag [%s]" % (time.asctime(), msg_payload['tag']))
   bs = beanstalkc.Connection()
   bs.use('signing')
   bs.put(json.dumps(msg_payload), priority=8192)
 
 def on_subscribe(client, userdata, topic, qos):
-  print "subscribed to "+topic
+  print("subscribed to %s " % topic)
 
 def main():
   mqtt_client_id = '%s-%s' % (os.uname()[1],str(time.time()).split('.')[0])

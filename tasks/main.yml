@@ -1,4 +1,10 @@
 # Defaults tasks for role stylo
+- name: Importing specific distro variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution }}.yml"
+
 - name: Creating local signing user
   user:
     name: "{{ stylo_local_user }}"
@@ -34,6 +40,40 @@
   yum:
     name: "{{ stylo_pkgs }}"
     state: latest
+
+- block:
+    - name: Configuring koji to point to correct instance
+      template:
+        src: cbs-koji.conf.j2
+        dest: /etc/koji.conf.d/cbs-koji.conf
+    - name: Ensuring correct profile
+      file:
+        path: /usr/bin/cbs
+        state: link
+        src: /usr/bin/koji
+
+    - name: Enabling some booleans
+      seboolean:
+        name: "{{ item }}"
+        persistent: yes
+        state: yes
+      with_items: "{{ stylo_sebooleans }}"
+
+    - name: Distributing custom selinux policies
+      copy: 
+        src: "selinux/{{ ansible_distribution_version[0] }}/{{ item }}" 
+        dest: "/etc/selinux/centos/{{ item }}"
+      register: sepolicy
+      with_items:
+        - centos-stylo.pp
+
+    - name: reload custom selinux files
+      shell: /usr/sbin/semodule -u "/etc/selinux/centos/centos-stylo.pp"
+      when: 
+        - ansible_selinux.status == "enabled" 
+        - sepolicy is changed
+
+  when: ansible_distribution_major_version|int > 7
 
 - name: Ensuring we have local beanstalkd started
   service:

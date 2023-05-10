@@ -31,18 +31,6 @@ stylo_buildlogs_basedir:
 stylo_debug_basedir:
 stylo_vault_basedir:
 
-# Needed pkgs
-stylo_pkgs:
-  - rpm
-  - rpm-sign
-  - gnupg2
-  - centos-packager
-  - PyYAML
-  - python-beanstalkc
-  - beanstalkd
-  - python-paho-mqtt
-  - genisoimage
-
 # Koji cli part
 # Do we need to use specific repo to deploy newer/specific koji pkgs and newer rpm/rpm-sign
 stylo_kojihub_repo: True
@@ -52,7 +40,10 @@ stylo_kojihub_repo_gpgkey: RPM-GPG-KEY-CentOS-Infra
 stylo_koji_mountpoint: /mnt/kojishare
 stylo_koji_nfs_path: nfs-host.domain.com:/exports/kojishare
 
-# Koji user TLS we'll use to interact with kojihub
+# Koji user TLS we'll use to interact with kojihub (also defined)
+stylo_kojihub_url: https://cbs.centos.org/kojihub/
+stylo_kojiweb_url: https://cbs.centos.org/koji/
+stylo_kojifiles_url: https://cbs.centos.org/kojifiles/
 stylo_koji_user_cert: admin.pem
 stylo_koji_ca_cert: 
 

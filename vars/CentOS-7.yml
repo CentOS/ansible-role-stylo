@@ -1,0 +1,12 @@
+# Specific el7 variables
+stylo_pkgs:
+  - rpm
+  - rpm-sign
+  - gnupg2
+  - centos-packager
+  - PyYAML
+  - python-beanstalkc
+  - beanstalkd
+  - python-paho-mqtt
+  - genisoimage
+

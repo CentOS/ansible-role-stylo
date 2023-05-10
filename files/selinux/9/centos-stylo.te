@@ -1,0 +1,16 @@
+
+module centos-stylo 1.0.1;
+
+require {
+	type user_home_t;
+	type init_t;
+	type user_home_dir_t;
+	class file { execute execute_no_trans getattr ioctl map open read };
+	class dir { getattr open read search };
+	class lnk_file read;
+}
+
+#============= init_t ==============
+
+allow init_t user_home_t:file { execute execute_no_trans ioctl open read };
+

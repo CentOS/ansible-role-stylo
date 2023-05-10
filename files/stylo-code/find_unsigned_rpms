@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # A utility to get the number of unsigned rpms for a given tag from koji
 #
@@ -35,9 +35,9 @@ config_file = os.getenv('HOME')+'/stylo.yml'
 
 if os.path.exists(config_file):
   with open(config_file, 'r') as ymlfile:
-      cfg = yaml.load(ymlfile)
+      cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
 else:
-  print "%s config file not found !" % (config_file)
+  print("%s config file not found !" % (config_file))
   sys.exit(1)
 
 status = 0

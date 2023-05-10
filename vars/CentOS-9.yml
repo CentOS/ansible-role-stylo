@@ -1,0 +1,17 @@
+# Specific el9 variables
+stylo_pkgs:
+  - rpm
+  - rpm-sign
+  - gnupg2
+  - pinentry
+  - koji
+  - python-beanstalkc3
+  - beanstalkd
+  - python-paho-mqtt
+  - genisoimage
+  - pyOpenSSL
+
+stylo_sebooleans:
+  - nis_enabled
+  - rsync_client
+  - rsync_full_access

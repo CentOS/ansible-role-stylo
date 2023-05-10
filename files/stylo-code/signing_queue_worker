@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 import time
 import sys
 import json
@@ -13,9 +13,9 @@ config_file = os.getenv('HOME')+'/stylo.yml'
 
 if os.path.exists(config_file):
   with open(config_file, 'r') as ymlfile:
-      cfg = yaml.load(ymlfile)
+      cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
 else:
-  print "%s config file not found !" % (config_file)
+  print('%s config file not found !' % (config_file))
   sys.exit(1)
 
 
@@ -27,7 +27,7 @@ def main():
         bs = beanstalkc.Connection(connect_timeout=2)
         bs.watch('signing')
       bs_connection = True
-      print '[%s] : Waiting for tag/untag operations in signing queue' % (time.asctime())
+      print('[%s] : Waiting for tag/untag operations in signing queue' % time.asctime())
       job = bs.reserve()
       msg_payload = json.loads(job.body)
       process_koji_tag_cmd = "/home/stylo/stylo-code/process-tag -t %s -r" % (msg_payload['tag'])
@@ -41,11 +41,11 @@ def main():
           next_job.release()
         else:
           job.delete()
-          print "[%s] : Launching job 'process-tag -t %s -r'" % (time.asctime(),msg_payload['tag'])
+          print("[%s] : Launching job 'process-tag -t %s -r'" % (str(time.asctime()),msg_payload['tag']))
           process_koji_tag = subprocess.call(process_koji_tag_cmd, shell=True)  
       else:
         job.delete()
-        print "[%s] : Launching job 'process-tag -t %s -r'" % (time.asctime(),msg_payload['tag'])
+        print("[%s] : Launching job 'process-tag -t %s -r'" % (str(time.asctime()),msg_payload['tag']))
         process_koji_tag = subprocess.call(process_koji_tag_cmd, shell=True)  
 
     except beanstalkc.SocketError:

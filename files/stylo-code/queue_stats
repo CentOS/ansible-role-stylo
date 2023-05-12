@@ -7,6 +7,6 @@ for tube in bs.tubes():
   if 'default' not in tube:
     readyjobs = bs.stats_tube(tube)['current-jobs-ready']
     workers = bs.stats_tube(tube)['current-watching']
-    print 'Current number of job[s] in queue in [%s]: %s' % (tube,str(readyjobs))
-    print 'Number of connected workers for [%s]: %s' % (tube,str(workers))
+    print('Current number of job[s] in queue in [%s]: %s' % (tube,str(readyjobs)))
+    print('Number of connected workers for [%s]: %s' % (tube,str(workers)))
 

@@ -136,6 +136,9 @@
   synchronize:
     src: stylo-code/
     dest: "/home/{{ stylo_local_user }}/stylo-code/"
+  tags:
+    - scripts
+    - code
 
 - name: Systemd unit files
   template:

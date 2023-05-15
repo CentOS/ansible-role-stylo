@@ -138,10 +138,10 @@ if [ "${need_sign}" -eq "1" ] ; then
     export regen_repo="1"
     f_log "Unsigned packages found. Downloading ..."
     while [ "$unsigned_pkgs" -ne "0" ] ; do 
-      signing_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
-      pushd $signing_stg_dir >/dev/null
       for pkg in $(find_unsigned_rpms --tag=${koji_tag} --just-list sig-${sig}) ; do
-	      f_log "Downloading pkg [${pkg}]"
+        signing_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
+        pushd $signing_stg_dir >/dev/null
+        f_log "Downloading pkg [${pkg}]"
         cbs download-build --debuginfo --rpm ${pkg} --quiet
         f_check
         f_log "Signing pkg [${pkg}] with gpg key [${sig_key}]"
@@ -150,9 +150,9 @@ if [ "${need_sign}" -eq "1" ] ; then
         f_log "Importing signed [${pkg}] back into koji ..."
         cbs import-sig ${pkg} --write >/dev/null
         f_check
+        popd >/dev/null
+        rm -Rf ${signing_stg_dir}
       done
-      popd >/dev/null
-      rm -Rf ${signing_stg_dir}
       unsigned_pkgs=$(find_unsigned_rpms --tag=${koji_tag} --just-numbers sig-${sig})
     done
   fi

@@ -5,6 +5,7 @@ stylo_pkgs:
   - gnupg2
   - pinentry
   - koji
+  - createrepo_c
   - python-beanstalkc3
   - beanstalkd
   - python-paho-mqtt

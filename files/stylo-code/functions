@@ -1,4 +1,23 @@
 # Functions
+
+usage() {
+cat << EOF
+You need to call the script like this : $0 -arguments
+ -t : koji tag to parse [required, example: storage7-gluster-7-testing]
+ -r : Force a call to koji dist-repo to regen repository for tag [optional, default: depends if unsigned pkgs are found]
+ -h : display this help
+EOF
+
+}
+
+varcheck() {
+if [ -z "$1" ] ; then
+        usage
+        exit 1
+fi
+}
+
+
 f_log() {
    echo "[+] $(date +%Y%m%d-%H:%M) stylo -> $*" >>$logfile
 }
@@ -53,4 +72,53 @@ f_gendud() {
     fi
   done
   f_log "Finished building DuD iso images for tag [${dist_repo_koji_tag}]"
+}
+
+# Next function is to just retrieve from koji images/spins and just push out and sign checksum
+# no rpm package to sign so we'll just exit after having pushed artifacts to mirror cdn
+
+f_process_images() {
+  images_artifacts="qcow2 sha256"
+  f_log "[images] detected so not signing rpm packages"
+  tagged_images=$(cbs list-tagged --quiet ${koji_tag} --paths|wc -l)
+  if [ "${tagged_images}" -eq "0" ] ; then
+    f_log "[WARNING] No tagged image/spin in tag [${koji_tag}]"
+    f_log "Exiting"
+  else
+    # we seem to have artifacts so detecting architectures, creating tmp dir, copying all , signing artifacts and sync out
+    f_log "Parsing tagged builds for tag [${koji_tag}]"
+    images_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
+    tag_arches=$(cbs taginfo ${koji_tag}|grep Arches|cut -f 2 -d ':'|sed 's/armv7hl/armhfp/g')
+    f_log "Enabled architectures for tag [${koji_tag}] : [${tag_arches} ]"
+    # Checking where to push images to 
+    if [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
+      full_mirror_dir="${target_dir}/${dist}/${sig}/${sig_project}-${sig_project_rel}"
+    else
+      full_mirror_dir="${target_dir}/centos/${dist}/${sig}/${sig_project}-${sig_project_rel}"
+    fi
+    for arch in ${tag_arches}; do
+      test -d ${images_stg_dir}/${arch} || mkdir -p ${images_stg_dir}/${arch}
+      for path in $(cbs list-tagged --quiet --paths ${koji_tag}|awk '{print $1}') ; do
+	f_log "Copying artifacts from ${path}/ to staging dir for arch [${arch}]"
+	for artifact in ${images_artifacts} ; do
+	  cp -v ${path}/images/*${arch}*.${artifact} ${images_stg_dir}/${arch} >> ${logfile}
+	  f_check
+	done
+      done
+      f_log "Creating and signing SHA256SUM for all [${arch}] images"
+      pushd ${images_stg_dir}/${arch} > /dev/null
+      cat *.sha256 > SHA256SUM
+      gpg --batch --detach-sig --armor -b --digest-algo sha256 --use-agent --local-user ${sig_key}! SHA256SUM
+      f_check
+      popd > /dev/null
+      f_log "Testing target dir [${full_mirror_dir}]/${arch} exists"
+      ssh ${push_user}@${master} "test -d ${full_mirror_dir}/${arch} || mkdir -p ${full_mirror_dir}/${arch}"
+      f_log "Pushing [${images_stg_dir}/${arch}/] to [${full_mirror_dir}/${arch}]"
+      rsync -avH --delete-after ${images_stg_dir}/${arch}/ ${push_user}@${master}:/${full_mirror_dir}/${arch}/ >> ${logfile}
+      f_check
+    done
+  fi
+  f_log "Finished parsing images artifacts for [${koji_tag}]"
+  f_log "=================================================================================="
+  exit
 }

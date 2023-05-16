@@ -37,8 +37,10 @@ stylo_kojihub_repo: True
 stylo_kojihub_repo_gpgkey: RPM-GPG-KEY-CentOS-Infra
 
 # How to mount kojishare/nfs (we need to have access RW for DuD .iso creation 
+# Also creating /mnt/koji symlink to real place to match upstream koji (boolean)
 stylo_koji_mountpoint: /mnt/kojishare
 stylo_koji_nfs_path: nfs-host.domain.com:/exports/kojishare
+stylo_koji_mnt_symlink_workaround: True
 
 # Koji user TLS we'll use to interact with kojihub (also defined)
 stylo_kojihub_url: https://cbs.centos.org/kojihub/

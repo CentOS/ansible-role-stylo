@@ -35,6 +35,8 @@
 
 - name: koji nfs storage
   include_tasks: storage.yml
+  tags:
+    - storage
 
 - name: Adding mandatory packages for stylo
   yum:

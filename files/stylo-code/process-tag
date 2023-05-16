@@ -15,23 +15,6 @@ logfile="${log_dir}/stylo.log"
 regen_repo="0"
 src_pushed="0"
 
-function usage() {
-cat << EOF
-You need to call the script like this : $0 -arguments
- -t : koji tag to parse [required, example: storage7-gluster-7-testing]
- -r : Force a call to koji dist-repo to regen repository for tag [optional, default: depends if unsigned pkgs are found]
- -h : display this help
-EOF
-
-}
-
-function varcheck() {
-if [ -z "$1" ] ; then
-        usage
-        exit 1
-fi
-}
-
 while getopts "ht:r" option
 do
   case ${option} in
@@ -128,7 +111,16 @@ f_log "Verifying koji tag [${koji_tag}]"
 cbs list-tags|egrep -q ${koji_tag}
 f_check
 
-# Find how many pkgs are unsigned and act if needed
+# Checking first if it's a spin (from `images` $sig_project coming from koji tag
+# If so, just calling the function and exit directly after
+
+if [ "${sig_project}" == "images" ] ; then
+  f_log "Calling specific [f_process_images] function for [${koji_tag}]"
+  f_process_images
+  exit
+fi
+
+# Find how many RPM pkgs are unsigned and act if needed
 if [ "${need_sign}" -eq "1" ] ; then
   f_log "Verifying if we have unsigned pkgs in tag [${koji_tag}] with key [${sig_key}]"
   unsigned_pkgs=$(find_unsigned_rpms --tag=${koji_tag} --just-numbers sig-${sig})

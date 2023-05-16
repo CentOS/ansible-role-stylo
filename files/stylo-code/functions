@@ -43,7 +43,7 @@ f_gendud() {
   for arch in ${tag_arches} ; do
     if [ -d "${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/" ] ; then
       pushd ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/Packages/k/ >/dev/null
-      kmod_pkgs_number=$(find ./ -iname kmod*.rpm|wc -l)
+      kmod_pkgs_number=$(find ./ -iname 'kmod*.rpm'|wc -l)
       if [ "${kmod_pkgs_number}" -gt "0" ] ; then
         test -d ../../DriverDiscs || mkdir -p ../../DriverDiscs/
         for rpm_pkg in *.rpm ; do

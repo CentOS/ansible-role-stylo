@@ -117,6 +117,8 @@ f_process_images() {
       rsync -avH --delete-after ${images_stg_dir}/${arch}/ ${push_user}@${master}:/${full_mirror_dir}/${arch}/ >> ${logfile}
       f_check
     done
+    f_log "Deleting staged directory [${images_stg_dir}]"
+    rm -Rf ${images_stg_dir}
   fi
   f_log "Finished parsing images artifacts for [${koji_tag}]"
   f_log "=================================================================================="

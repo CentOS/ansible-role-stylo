@@ -78,7 +78,6 @@ f_gendud() {
 # no rpm package to sign so we'll just exit after having pushed artifacts to mirror cdn
 
 f_process_images() {
-  images_artifacts="qcow2 sha256"
   f_log "[images] detected so not signing rpm packages"
   tagged_images=$(cbs list-tagged --quiet ${koji_tag} --paths|wc -l)
   if [ "${tagged_images}" -eq "0" ] ; then
@@ -100,14 +99,15 @@ f_process_images() {
       test -d ${images_stg_dir}/${arch} || mkdir -p ${images_stg_dir}/${arch}
       for path in $(cbs list-tagged --quiet --paths ${koji_tag}|awk '{print $1}') ; do
 	f_log "Copying artifacts from ${path}/ to staging dir for arch [${arch}]"
+        # ${images_artifacts} variable is defined through stylo.cfg, sourced for this script (and configured by ansible)
 	for artifact in ${images_artifacts} ; do
-	  cp -v ${path}/images/*${arch}*.${artifact} ${images_stg_dir}/${arch} >> ${logfile}
+	  find ${path}/images/ -iname *${arch}*.${artifact} -exec cp -v {} ${images_stg_dir}/${arch} \; >> ${logfile}
 	  f_check
 	done
       done
       f_log "Creating and signing SHA256SUM for all [${arch}] images"
       pushd ${images_stg_dir}/${arch} > /dev/null
-      cat *.sha256 > SHA256SUM
+      cat *.sha256 > SHA256SUM && rm *.sha256
       gpg --batch --detach-sig --armor -b --digest-algo sha256 --use-agent --local-user ${sig_key}! SHA256SUM
       f_check
       popd > /dev/null

@@ -1,13 +1,16 @@
 # This file contains variables for some bash scripts used for signing
 # Where to log
 log_dir="/home/$USER/logs"
+
 # Enable zabbix notifications
 zabbix_send=true
+
 # gpg keys
 {% for sig in stylo_gpg_sigs %}
 gpg_{{ sig.name }}="{{ sig.key_id }}"
 {% endfor %}
-# master node to push to
+
+# main mirror ref server to push content to
 master="{{ stylo_master_node }}"
 push_user="{{ stylo_push_user }}"
 mirror_basedir="{{ stylo_mirror_basedir }}"
@@ -15,5 +18,9 @@ mirror_stream_basedir="{{ stylo_mirror_stream_basedir }}"
 buildlogs_basedir="{{ stylo_buildlogs_basedir }}"
 debug_basedir="{{ stylo_debug_basedir }}"
 vault_basedir="{{ stylo_vault_basedir }}"
+
 # Where is kojishare nfs path mounted
 repo_dist_dir="/mnt/kojishare/koji/repos-dist/"
+
+# For the images/spins, which artifacts do we need to push to mirror CDN
+images_artifacts="{{ stylo_images_artifacts }}"

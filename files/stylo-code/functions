@@ -32,6 +32,15 @@ f_check() {
   fi
 }
 
+f_mqtt_pub() {
+  tag="$1"
+  status="$2"
+  queued_jobs=$(echo -e "stats-tube signing\r\n"|nc 127.0.0.1 11300|grep current-jobs-ready|awk '{print $2}')
+  current_time=$(date '+%Y%m%d-%H:%M:%S')
+  mqtt_payload="{\"time\": \"${current_time}\", \"tag\": \"${tag}\", \"status\": \"${status}\", \"jobs_in_queue\": \"${queued_jobs}\"}"
+  mosquitto_pub --cafile ${mqtt_ca_cert} --cert ${mqtt_tls_cert} --key ${mqtt_tls_key} -h ${mqtt_host} -p ${mqtt_port} -t ${mqtt_topic_pub} -m "${mqtt_payload}"
+}
+
 # this function will only be triggered for kmods SIG
 # it will be called after rpms will be signed and imported back into koji
 # and after dist-repo task, to have repodata/Packages in place
@@ -120,6 +129,7 @@ f_process_images() {
     f_log "Deleting staged directory [${images_stg_dir}]"
     rm -Rf ${images_stg_dir}
   fi
+  f_mqtt_pub "${koji_tag}" "processed"
   f_log "Finished parsing images artifacts for [${koji_tag}]"
   f_log "=================================================================================="
   exit

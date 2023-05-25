@@ -24,3 +24,11 @@ repo_dist_dir="/mnt/kojishare/koji/repos-dist/"
 
 # For the images/spins, which artifacts do we need to push to mirror CDN
 images_artifacts="{{ stylo_images_artifacts }}"
+
+# For mqtt notifications (publisher)
+mqtt_host="{{ stylo_mqtt_host }}"
+mqtt_port="8883"
+mqtt_tls_key="/home/{{ stylo_local_user }}/.centos.cert"
+mqtt_tls_cert="/home/{{ stylo_local_user }}/.centos.cert"
+mqtt_ca_cert="/home/{{ stylo_local_user }}/.centos-server-ca.cert"
+mqtt_topic_pub="{{ stylo_mqtt_topic_pub }}"

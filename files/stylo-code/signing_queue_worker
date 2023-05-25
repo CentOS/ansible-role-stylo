@@ -40,6 +40,7 @@ def main():
           job.delete()
           next_job.release()
         else:
+          next_job.release()
           job.delete()
           print("[%s] : Launching job 'process-tag -t %s -r'" % (str(time.asctime()),msg_payload['tag']))
           process_koji_tag = subprocess.call(process_koji_tag_cmd, shell=True)  

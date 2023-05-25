@@ -11,6 +11,8 @@ stylo_pkgs:
   - python-paho-mqtt
   - genisoimage
   - pyOpenSSL
+  - mosquitto
+  - nc
 
 stylo_sebooleans:
   - nis_enabled

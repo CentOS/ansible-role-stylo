@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import time
+import datetime
 import sys
 import json
 import paho.mqtt.client as mqtt
@@ -26,6 +27,7 @@ mqtt_tls_key = cfg['mqtt']['tls_key']
 mqtt_tls_insecure = cfg['mqtt']['tls_insecure']
 mqtt_cacert = cfg['mqtt']['ca_cert']
 mqtt_topic = cfg['mqtt']['topic']
+mqtt_topic_pub = cfg['mqtt']['topic_pub']
 
 def on_connect(client, userdata, flags, rc):
   print("Connected to broker ", mqtt_host ,rc)
@@ -37,6 +39,11 @@ def on_message(client, userdata, message):
   bs = beanstalkc.Connection()
   bs.use('signing')
   bs.put(json.dumps(msg_payload), priority=8192)
+  queued_payload = {}
+  queued_payload['time'] = datetime.datetime.now().strftime("%Y%m%d-%H:%M:%S")
+  queued_payload['tag'] = msg_payload['tag']   
+  queued_payload['status'] = "queued"
+  client.publish(mqtt_topic_pub,json.dumps(queued_payload))
 
 def on_subscribe(client, userdata, topic, qos):
   print("subscribed to %s " % topic)

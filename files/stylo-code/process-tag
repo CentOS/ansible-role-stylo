@@ -111,6 +111,9 @@ f_log "Verifying koji tag [${koji_tag}]"
 cbs list-tags|egrep -q ${koji_tag}
 f_check
 
+# Notifying start on mqtt topic
+f_mqtt_pub "${koji_tag}" processing 
+
 # Checking first if it's a spin (from `images` $sig_project coming from koji tag
 # If so, just calling the function and exit directly after
 
@@ -262,5 +265,7 @@ if [ "$regen_repo" -eq "1" ] ;then
 fi
 
 # Ending
+# notifying on mqtt topic
+f_mqtt_pub "${koji_tag}" processed
 f_log "Finished processing [${koji_tag}]"
 f_log "================================================================"

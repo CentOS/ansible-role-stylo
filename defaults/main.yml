@@ -55,7 +55,10 @@ stylo_koji_ca_cert:
 # Mqtt broker settings (we'll be using stylo_koji_user_cert to auth against it
 # So it should be first allowed in mqtt acl on the mqtt broker host
 stylo_mqtt_host: mqtt.dev.centos.org
+# topic on which to subscribe (where koji will publish)
 stylo_mqtt_topic: koji
+# topic on which we'll publish (where consumers can 
+stylo_mqtt_topic_pub: cbs-signing
 
 # Zabbix/monitoring part
 stylo_zabbix_templates:

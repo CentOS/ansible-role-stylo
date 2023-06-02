@@ -72,6 +72,7 @@ fi
 
 if [ "$sig_level" == "candidate" ] ;then
   f_log "Not processing at all candidate tag for [${koji_tag}]"
+  f_mqtt_pub "${koji_tag}" skipped
   exit 0
 elif [ "$sig_level" == "testing" ]; then
   need_sign="1"

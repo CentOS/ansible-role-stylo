@@ -258,6 +258,10 @@ if [ "$regen_repo" -eq "1" ] ;then
         ssh ${push_user}@${master} "cd ${full_vault_dir} ; createrepo_c -q -d --workers 8 ./"
         f_check
       fi
+      # Specific case for kmods SIG where we have to ensure we also have rhel 8/9 kernel src.rpm pushed with kmods src.rpm package
+      if [ "${sig}" == "kmods" ] ; then
+        f_kernel_src
+      fi
       export src_pushed="1"
     else
       f_log "No src.rpm packages to push for [${sig_level}], or ignored for arch [${arch}]"

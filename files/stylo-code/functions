@@ -83,6 +83,50 @@ f_gendud() {
   f_log "Finished building DuD iso images for tag [${dist_repo_koji_tag}]"
 }
 
+# Specific function for kmods SIG 
+# kernel modules are built against specific kernel and src.rpm for corresponding kernels should go out too
+# As we allow building against/for RHEL kernels, we should then release these ones too (RH Legal)
+f_kernel_src() {
+  f_log "Starting kernel_src function for Kmods SIG"
+  if [ "$dist" == "9" ] ; then
+    kernel_src_vault_dir="${target_dir}/${dist}/${sig}/source/kernels/"  
+  elif [ "$dist" == "8" ] ; then
+    kernel_src_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/kernels/"
+  else
+    f_log "Detected dist is [${dist}] so src.rpm kernels are available so nothing to download from RH CDN"
+    return 0  
+  fi
+  # Clearing first local dnf cache
+  dnf --quiet clean all --disablerepo=\* --enablerepo=rhel-${dist}-for-x86_64-baseos-srpms
+  # Ensuring we have target dir to push to
+  ssh ${push_user}@${master} "test -d ${kernel_src_vault_dir}/ || mkdir -p ${kernel_src_vault_dir}"
+  f_log "Retrieving already downloaded kernel src.rpm packages"
+  existing_kernels=$(ssh ${push_user}@${master} "ls ${kernel_src_vault_dir}/kernel*.src.rpm")
+  # Checking kmods src.rpm and for each one, checking kernel version and if we have kernel src.rpm
+  kernels_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
+  pushd ${kernels_stg_dir} >/dev/null 2>&1
+  for kmod_srpm in $(find ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ -iname kmod*.src.rpm) ; do
+    kernel_version=$(rpm -qp --queryformat '%{V}' ${kmod_srpm} 2>/dev/null|sed 's/~/-/g')
+    # searching if we already have kernel-${kernel_version}
+    kmod_srpm_pkg=$(echo ${kmod_srpm} | rev | cut -f 1 -d '/' | rev)
+    if grep -q ${kernel_version} <<< "${existing_kernels}"; then
+      f_log "[${kmod_srpm_pkg}] : matching [kernel-${kernel_version}] src.rpm already available => SKIP"
+    else
+      f_log "[${kmod_srpm_pkg}] : Downloading [kernel-${kernel_version}] from [rhel-${dist}-for-x86_64-baseos-srpms]"
+      yumdownloader --quiet --source --disablerepo=\* --enablerepo=rhel-${dist}-for-x86_64-baseos-srpms kernel-${kernel_version}\*
+      f_check
+    fi 
+  done
+  popd >/dev/null 2>&1
+  # Pushing all downloaded src.rpm packages to target dir (rsync *without* --delete)
+  f_log "Pushing EL${dist} kernel src.rpm packages to ${kernel_src_vault_dir}/"
+  rsync -av ${kernels_stg_dir}/ ${push_user}@${master}:/${kernel_src_vault_dir}/ >> ${logfile}
+  f_check
+  ssh ${push_user}@${master} "cd ${kernel_src_vault_dir} ; createrepo_c -q -d --workers 8 ./" 
+  f_check
+  rm -Rf ${kernels_stg_dir} 
+}
+
 # Next function is to just retrieve from koji images/spins and just push out and sign checksum
 # no rpm package to sign so we'll just exit after having pushed artifacts to mirror cdn
 

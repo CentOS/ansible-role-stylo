@@ -13,6 +13,7 @@ stylo_pkgs:
   - pyOpenSSL
   - mosquitto
   - nc
+  - yum-utils
 
 stylo_sebooleans:
   - nis_enabled

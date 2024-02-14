@@ -122,7 +122,7 @@ f_kernel_src() {
   f_log "Pushing EL${dist} kernel src.rpm packages to ${kernel_src_vault_dir}/"
   rsync -av ${kernels_stg_dir}/ ${push_user}@${master}:/${kernel_src_vault_dir}/ >> ${logfile}
   f_check
-  ssh ${push_user}@${master} "cd ${kernel_src_vault_dir} ; createrepo_c -q -d --workers 8 ./" 
+  ssh ${push_user}@${master} "cd ${kernel_src_vault_dir} ; createrepo_c -q -d --workers 8 ./ ; chmod 755 ${kernel_src_vault_dir}" 
   f_check
   rm -Rf ${kernels_stg_dir} 
 }

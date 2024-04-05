@@ -169,6 +169,8 @@ f_process_images() {
       f_log "Pushing [${images_stg_dir}/${arch}/] to [${full_mirror_dir}/${arch}]"
       rsync -avH --delete-after ${images_stg_dir}/${arch}/ ${push_user}@${master}:/${full_mirror_dir}/${arch}/ >> ${logfile}
       f_check
+      f_log "Deleting staged dir [${images_stg_dir}/${arch}]"
+      rm -Rf ${images_stg_dir}/${arch}
     done
     f_log "Deleting staged directory [${images_stg_dir}]"
     rm -Rf ${images_stg_dir}

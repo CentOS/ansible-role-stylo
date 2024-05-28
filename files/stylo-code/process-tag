@@ -38,18 +38,31 @@ done
 varcheck ${koji_tag}
 
 # Some parsing
+# Verifying which SIG, with release and which distro (8 , 8s, or else etc)
 sig_level=$(echo $koji_tag|rev|cut -f 1 -d '-'|rev)
 sig_project=$(echo $koji_tag|cut -f 2 -d '-')
 sig_project_rel=$(echo $koji_tag|rev|cut -f 2 -d '-'|rev)
 sig_rel=$(echo $koji_tag|cut -f 1 -d '-')
 major=$(tr -dc '0-9' <<< $sig_rel)
+# Detecting if Stream or not (contains 's' for stream tags)
 if [[ $sig_rel =~ s$ ]]; then
-	dist="$major-stream"
-	sig=${sig_rel::-2}
+  dist="$major-stream"
+  # parsing variable length for 8, 9 vs 10 (one versus two characters)
+  if [ "${#major}" -eq "1" ] ; then 
+    sig=${sig_rel::-2}
+  elif [ "${#major}" -eq "2" ] ; then
+    sig=${sig_rel::-3}
+  fi
 else
-	dist="$major"
-	sig=${sig_rel::-1}
+  dist="$major"
+  # parsing variable length for 8, 9 vs 10 (one versus two characters)
+  if [ "${#major}" -eq "1" ] ; then 
+    sig=${sig_rel::-1}
+  elif [ "${#major}" -eq "2" ] ; then
+    sig=${sig_rel::-2}
+  fi
 fi
+
 sig_gpg="gpg_$sig"
 sig_key=${!sig_gpg}
 
@@ -84,18 +97,18 @@ elif [ "$sig_level" == "testing" ]; then
 elif [ "$sig_level" == "release" ]; then
   need_sign="1"
   # Pushing to mirrors but different starting from 9-stream and also debug/vault pushed all together
-  if [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
-    push_debug="0"
-    push_vault="1"
-    dist_repo_options="--non-latest --with-src --split-debuginfo ${dist_repo_koji_tag} ${sig_key}"
-    target="mirror_stream_basedir"
-    target_dir=${!target}    
-  else
+  if [ "$dist" == "7" ] ; then
     push_debug="1"
     push_vault="1"
     dist_repo_options="--non-latest --with-src --split-debuginfo ${dist_repo_koji_tag} ${sig_key}"
     target="mirror_basedir"
     target_dir=${!target}
+  else
+    push_debug="0"
+    push_vault="1"
+    dist_repo_options="--non-latest --with-src --split-debuginfo ${dist_repo_koji_tag} ${sig_key}"
+    target="mirror_stream_basedir"
+    target_dir=${!target}    
   fi
 else
   f_log "Incorrect level [${sig_level}] (not in candidate/testing/release). Exiting"
@@ -189,7 +202,7 @@ if [ "$regen_repo" -eq "1" ] ;then
     fi
     if [ "$sig" == "sclo" ] ; then
       full_mirror_dir="${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project_rel}"
-    elif [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
+    elif [ "$dist" != "7" ] ; then
       full_mirror_dir="${target_dir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
     else
       full_mirror_dir="${target_dir}/${contentdir}/${dist}/${sig}/${arch}/${sig_project}-${sig_project_rel}"
@@ -198,14 +211,14 @@ if [ "$regen_repo" -eq "1" ] ;then
     ssh ${push_user}@${master} "test -d ${full_mirror_dir} || mkdir -p ${full_mirror_dir}"
     f_check
     f_log "Pushing to [${full_mirror_dir}]"
-    if [ "${dist}" == "9-stream" ] || [ "${dist}" == "9" ] ; then
-      # also pushing debuginfo and then source
+    if [ "${dist}" == "7" ]  ; then 
+      rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debugsource*.rpm' --filter '+ *debuginfod-*' --filter '- *debuginfo*.rpm' >> ${logfile}
+    else
+      # also pushing debuginfo and then source starting from el8/cs9 and beyond
       rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- kojipkgs' --filter '- pkglist' --delete-after  >> ${logfile}
       f_log "Incrementing COMPOSE_ID for ${dist}"
       ssh ${push_user}@${master} "echo $(date +%Y%m%d-%H%M%S) > ${target_dir}/${dist}/COMPOSE_ID"
-    else
-      rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/${arch}/ ${push_user}@${master}:/${full_mirror_dir} --filter '- debug' --filter '- kojipkgs' --filter '- pkglist' --delete-after --filter '- *debugsource*.rpm' --filter '+ *debuginfod-*' --filter '- *debuginfo*.rpm' >> ${logfile}
-    fi
+   fi
     f_check
     f_log "Signing repomd.xml with gpg key [${sig_key}]"
     repomd_stg_dir=$(mktemp -d --tmpdir=/home/stylo/staging)
@@ -238,17 +251,17 @@ if [ "$regen_repo" -eq "1" ] ;then
       f_log "[${sig_level}] detected so pushing signed src.rpm packages"
       if [ "$sig" == "sclo" ];then
         full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project_rel}/"
-      elif [[ "$dist" == "9-stream" ]] || [[ "$dist" == "9" ]] ; then
-        full_vault_dir="${target_dir}/${dist}/${sig}/source/${sig_project}-${sig_project_rel}/"
-      else
+      elif [[ "$dist" == "7" ]] ; then
         full_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/${sig_project}-${sig_project_rel}/"
+      else
+        full_vault_dir="${target_dir}/${dist}/${sig}/source/${sig_project}-${sig_project_rel}/"
       fi
       f_log "Testing Vault Directory [${full_vault_dir}]"
       ssh ${push_user}@${master} "test -d ${full_vault_dir}/ || mkdir -p ${full_vault_dir}"
       f_check
       f_log "Pushing src.rpm packages into [${full_vault_dir}]"
       # for 9-stream we'll just rsync the generated src directory to main mirror
-      if [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
+      if [ "$dist" != "7" ] ; then
         rsync -avH ${repo_dist_dir}/${dist_repo_koji_tag}/latest/src/ ${push_user}@${master}:/${full_vault_dir}/ --filter '- kojipkgs' --filter '- pkglist' --delete-after  >> ${logfile}
         f_check
       else

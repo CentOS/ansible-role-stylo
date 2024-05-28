@@ -91,7 +91,9 @@ f_kernel_src() {
   if [ "$dist" == "9" ] ; then
     kernel_src_vault_dir="${target_dir}/${dist}/${sig}/source/kernels/"  
   elif [ "$dist" == "8" ] ; then
-    kernel_src_vault_dir="${vault_basedir}/${contentdir}/${dist}/${sig}/Source/kernels/"
+    kernel_src_vault_dir="${target_dir}/${dist}/${sig}/source/kernels/"  
+  elif [ "$dist" == "10" ] ; then
+    kernel_src_vault_dir="${target_dir}/${dist}/${sig}/source/kernels/"  
   else
     f_log "Detected dist is [${dist}] so src.rpm kernels are available so nothing to download from RH CDN"
     return 0  
@@ -143,7 +145,7 @@ f_process_images() {
     tag_arches=$(cbs taginfo ${koji_tag}|grep Arches|cut -f 2 -d ':'|sed 's/armv7hl/armhfp/g')
     f_log "Enabled architectures for tag [${koji_tag}] : [${tag_arches} ]"
     # Checking where to push images to 
-    if [ "$dist" == "9-stream" ] || [ "$dist" == "9" ] ; then
+    if [ "$dist" != "7" ] ; then
       full_mirror_dir="${target_dir}/${dist}/${sig}/${sig_project}/${sig_project_rel}"
     else
       full_mirror_dir="${target_dir}/centos/${dist}/${sig}/${sig_project}/${sig_project_rel}"

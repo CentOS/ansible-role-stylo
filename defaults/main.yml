@@ -32,7 +32,7 @@ stylo_debug_basedir:
 stylo_vault_basedir:
 # Which images/spins artifacts should we push out to mirror CDN
 # worth knowing that we need to import .sha256 files but they'll be concatenated into SHA256SUM so deleted before being pushed out
-stylo_images_artifacts: "iso qcow2 sha256"
+stylo_images_artifacts: "iso qcow2 sha256 raw.xz"
 
 # Koji cli part
 # Do we need to use specific repo to deploy newer/specific koji pkgs and newer rpm/rpm-sign

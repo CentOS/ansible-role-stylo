@@ -9,6 +9,11 @@
   user:
     name: "{{ stylo_local_user }}"
     comment: "CentOS Stylo user"
+    uid: "{{ stylo_local_user_uid }}"
+    append: True
+    groups: zabbix
+  tags:
+    - user
 
 - name: Ensuring we have correct cert
   copy:

@@ -7,6 +7,8 @@
 
 # Local user for stylo service
 stylo_local_user: stylo
+# In case we need to share the nfs volume with koji and that it's owned by same uid
+stylo_local_user_uid: 48
 
 # gpg settings
 # Defining also all SIGs and each time (lowercase) the gpg pub key id to use to know how to sign for specific tags
